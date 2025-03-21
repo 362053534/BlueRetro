@@ -211,7 +211,8 @@ static void bt_tx_task(void *param) {
             if (packet) {
                 if (packet[0] == 0xFF) {
                     /* Internal wait packet */
-                    vTaskDelay(packet[1] / portTICK_PERIOD_MS);
+                    //vTaskDelay(packet[1] / portTICK_PERIOD_MS);
+                    vTaskDelay(200 / portTICK_PERIOD_MS);
                 }
                 else {
 #ifdef CONFIG_BLUERETRO_BT_H4_TRACE
