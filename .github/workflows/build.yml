@@ -8,15 +8,15 @@ on:
 
 jobs:
   build:
+    if: ${{ (github.repository == 'darthcloud/BlueRetro') || (github.event_name == 'workflow_dispatch') }}
     strategy:
       matrix:
         hw_version: [hw1]
         br_config:
           [playstation]
-
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/darthcloud/idf-blueretro:v5.3.0_2024-02-18
+      image: ghcr.io/darthcloud/idf-blueretro:v5.5.0_2024-12-02
     outputs:
       br_version: ${{ env.br_version }}
 
@@ -27,6 +27,7 @@ jobs:
         submodules: recursive
         fetch-depth: 0
     - name: Build with ESP-IDF
+      shell: bash
       run: |
         . $IDF_PATH/export.sh
         echo "br_version=$(git describe --always --tags --dirty)" >> $GITHUB_ENV
@@ -50,5 +51,3 @@ jobs:
           build/ota/ota_data_initial.bin
           build/BlueRetro*.bin
         if-no-files-found: error
-
-
