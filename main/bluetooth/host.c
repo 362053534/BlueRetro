@@ -206,27 +206,27 @@ static void bt_tx_task(void *param) {
 
     while(1) {
         /* TX packet from Q */
-//        if (atomic_test_bit(&bt_flags, BT_CTRL_READY)) {
-//            packet = (uint8_t *)xRingbufferReceive(txq_hdl, &packet_len, portMAX_DELAY);
-//            if (packet) {
-//                if (packet[0] == 0xFF) {
-//                    /* Internal wait packet */
-//                    vTaskDelay(packet[1] / portTICK_PERIOD_MS);
-//                }
-//                else {
-//#ifdef CONFIG_BLUERETRO_BT_H4_TRACE
-//                    bt_h4_trace(packet, packet_len, BT_TX);
-//#endif /* CONFIG_BLUERETRO_BT_H4_TRACE */
-//                    atomic_clear_bit(&bt_flags, BT_CTRL_READY);
-//                    esp_vhci_host_send_packet(packet, packet_len);
-//                }
-//                vRingbufferReturnItem(txq_hdl, (void *)packet);
-//            }
-//        }
-//        else {
-//            vTaskDelay(10 / portTICK_PERIOD_MS);
-//        }
-        vTaskDelay(5 / portTICK_PERIOD_MS);
+        if (atomic_test_bit(&bt_flags, BT_CTRL_READY)) {
+            packet = (uint8_t *)xRingbufferReceive(txq_hdl, &packet_len, portMAX_DELAY);
+            if (packet) {
+                if (packet[0] == 0xFF) {
+                    /* Internal wait packet */
+                    vTaskDelay(packet[1] / portTICK_PERIOD_MS);
+                }
+                else {
+#ifdef CONFIG_BLUERETRO_BT_H4_TRACE
+                    bt_h4_trace(packet, packet_len, BT_TX);
+#endif /* CONFIG_BLUERETRO_BT_H4_TRACE */
+                    atomic_clear_bit(&bt_flags, BT_CTRL_READY);
+                    esp_vhci_host_send_packet(packet, packet_len);
+                }
+                vRingbufferReturnItem(txq_hdl, (void *)packet);
+            }
+        }
+        else {
+            //vTaskDelay(10 / portTICK_PERIOD_MS);
+            vTaskDelay(200 / portTICK_PERIOD_MS);
+        }
     }
 }
 
@@ -298,7 +298,7 @@ static void bt_fb_task(void *param) {
             }
             delay_cnt = BT_FB_TASK_DELAY_CNT;
         }
-        vTaskDelay(16 / portTICK_PERIOD_MS);
+        vTaskDelay(50 / portTICK_PERIOD_MS);
     }
 }
 
@@ -328,7 +328,7 @@ static void bt_host_task(void *param) {
         /* Update turbo mask for parallel system */
         wired_para_turbo_mask_hdlr();
 
-        vTaskDelay(500 / portTICK_PERIOD_MS);
+        vTaskDelay(16 / portTICK_PERIOD_MS);
     }
 }
 
