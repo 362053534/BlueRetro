@@ -96,6 +96,7 @@ static const uint32_t xb1_mask[4] = {0xBB3F0FFF, 0x00000000, 0x00000000, 0x00000
 static const uint32_t xb1_mask2[4] = {0x00400000, 0x00000000, 0x00000000, 0x00000000};
 static const uint32_t xbox_xs_mask[4] = {0xBBFF0FFF, 0x00000000, 0x00000000, 0x00000000};
 static const uint32_t xb1_adaptive_mask[4] = {0xBB3FFFFF, 0x00000000, 0x00000000, 0x00000000};
+static const uint32_t gbros_mask[4] = {0xFF3F0FFF, 0x00000000, 0x00000000, 0x00000000};
 static const uint32_t xb1_desc[4] = {0x110000FF, 0x00000000, 0x00000000, 0x00000000};
 static const uint32_t xb1_btns_mask[32] = {
     0, 0, 0, 0,
@@ -141,6 +142,17 @@ static const uint32_t xbox_xs_btns_mask[32] = {
     0, BIT(XBOX_XS_RB), 0, BIT(XBOX_XS_RJ),
 };
 
+static const uint32_t gbros_btns_mask[32] = {
+    0, 0, 0, 0,
+    0, 0, 0, 0,
+    0, 0, 0, 0,
+    0, 0, 0, 0,
+    BIT(XB1_B), BIT(XB1_X), BIT(XB1_A), BIT(XB1_Y),
+    BIT(XB1_MENU), 0, 0, 0,
+    0, 0, BIT(XB1_LB), BIT(XB1_LJ),
+    0, BIT(XB1_VIEW), BIT(XB1_RB), BIT(XB1_RJ),
+};
+
 static void xbox_pad_init(struct bt_data *bt_data) {
     struct xb1_map *map = (struct xb1_map *)bt_data->base.input;
     struct ctrl_meta *meta = bt_data->raw_src_mappings[PAD].meta;
@@ -169,6 +181,14 @@ static void xbox_pad_init(struct bt_data *bt_data) {
         memcpy(bt_data->raw_src_mappings[PAD].desc, xb1_desc,
             sizeof(bt_data->raw_src_mappings[PAD].desc));
         memcpy(bt_data->raw_src_mappings[PAD].btns_mask, xbox_xs_btns_mask,
+            sizeof(bt_data->raw_src_mappings[PAD].btns_mask));
+    }
+    else if (bt_data->base.pids->subtype == BT_8BITDO_GBROS) {
+        memcpy(bt_data->raw_src_mappings[PAD].mask, gbros_mask,
+            sizeof(bt_data->raw_src_mappings[PAD].mask));
+        memcpy(bt_data->raw_src_mappings[PAD].desc, xb1_desc,
+            sizeof(bt_data->raw_src_mappings[PAD].desc));
+        memcpy(bt_data->raw_src_mappings[PAD].btns_mask, gbros_btns_mask,
             sizeof(bt_data->raw_src_mappings[PAD].btns_mask));
     }
     else {
@@ -236,7 +256,14 @@ int32_t xbox_to_generic(struct bt_data *bt_data, struct wireless_ctrl *ctrl_data
             ctrl_data->axes[i].meta = &meta[i];
             int32_t tmp = map->axes[xb1_axes_idx[i]] - xb1_axes_meta[i].neutral + bt_data->base.axes_cal[i];
 
-            ctrl_data->axes[i].value = tmp;
+            if (bt_data->raw_src_mappings[PAD].axes_to_btns[i]) {
+                if (tmp >= xb1_axes_meta[i].abs_max) {
+                    ctrl_data->btns[0].value |= generic_btns_mask[bt_data->raw_src_mappings[PAD].axes_to_btns[i]];
+                }
+            }
+            else {
+                ctrl_data->axes[i].value = tmp;
+            }
         }
     }
     else if (bt_data->base.report_id == 0x02) {

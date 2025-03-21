@@ -194,7 +194,7 @@ static void bt_tx_task(void *param) {
             if (packet) {
                 if (packet[0] == 0xFF) {
                     /* Internal wait packet */
-                    vTaskDelay(8 / portTICK_PERIOD_MS);
+                    vTaskDelay(packet[1] / portTICK_PERIOD_MS);
                 }
                 else {
                     bt_mon_tx((packet[0] == BT_HCI_H4_TYPE_CMD) ? BT_MON_CMD : BT_MON_ACL_TX,
@@ -206,7 +206,7 @@ static void bt_tx_task(void *param) {
             }
         }
         else {
-            vTaskDelay(8 / portTICK_PERIOD_MS);
+            vTaskDelay(10 / portTICK_PERIOD_MS);
         }
     }
 }
@@ -280,7 +280,7 @@ static void bt_fb_task(void *param) {
             }
             delay_cnt = BT_FB_TASK_DELAY_CNT;
         }
-        vTaskDelay(10 / portTICK_PERIOD_MS);
+        vTaskDelay(100 / portTICK_PERIOD_MS);
     }
 }
 
@@ -310,7 +310,7 @@ static void bt_host_task(void *param) {
         /* Update turbo mask for parallel system */
         wired_para_turbo_mask_hdlr();
 
-        vTaskDelay(8 / portTICK_PERIOD_MS);
+        vTaskDelay(16 / portTICK_PERIOD_MS);
     }
 }
 
@@ -692,17 +692,6 @@ int32_t bt_host_store_link_key(struct bt_hci_evt_link_key_notify *link_key_notif
     }
     ret = bt_host_store_keys_on_file(&bt_host_link_keys);
     return ret;
-}
-
-void bt_host_clear_le_ltk(bt_addr_le_t *le_bdaddr) {
-    for (uint32_t i = 0; i < ARRAY_SIZE(bt_host_le_link_keys.keys); i++) {
-        if (memcmp((void *)le_bdaddr, (void *)&bt_host_le_link_keys.keys[i].le_bdaddr, sizeof(*le_bdaddr)) == 0) {
-            memset(&bt_host_le_link_keys.keys[i].le_bdaddr, 0, sizeof(bt_host_le_link_keys.keys[0].le_bdaddr));
-            memset(&bt_host_le_link_keys.keys[i].ltk, 0, sizeof(bt_host_le_link_keys.keys[i].ltk));
-            memset(&bt_host_le_link_keys.keys[i].ident, 0, sizeof(bt_host_le_link_keys.keys[i].ident));
-        }
-    }
-    bt_host_store_le_keys_on_file(&bt_host_le_link_keys);
 }
 
 int32_t bt_host_load_le_ltk(bt_addr_le_t *le_bdaddr, struct bt_smp_encrypt_info *encrypt_info, struct bt_smp_master_ident *master_ident) {

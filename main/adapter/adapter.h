@@ -60,6 +60,7 @@ enum {
     BT_SW_N64,
     BT_SW_MD_GEN,
     BT_SW_HYPERKIN_ADMIRAL,
+    BT_8BITDO_GBROS,
     BT_SUBTYPE_MAX,
 };
 
@@ -308,7 +309,6 @@ enum {
     BT_QUIRK_FACE_BTNS_INVERT,
     BT_QUIRK_FACE_BTNS_ROTATE_RIGHT,
     BT_QUIRK_FACE_BTNS_TRIGGER_TO_6BUTTONS,
-    BT_QUIRK_FACE_BTNS_TRIGGER_TO_8BUTTONS,
     BT_QUIRK_TRIGGER_PRI_SEC_INVERT,
     BT_QUIRK_8BITDO_N64,
     BT_QUIRK_8BITDO_N64_MK,
@@ -319,7 +319,6 @@ enum {
     BT_QUIRK_STADIA,
     BT_QUIRK_OUYA,
     BT_QUIRK_8BITDO_GC,
-    BT_QUIRK_8BITDO_GBROS,
 };
 
 /* Wired flags */
@@ -472,7 +471,6 @@ struct raw_fb {
 struct hid_usage {
     uint32_t usage_page;
     uint32_t usage;
-    uint32_t usage_max;
     uint32_t flags;
     uint32_t bit_offset;
     uint32_t bit_size;
@@ -493,7 +491,7 @@ struct raw_src_mapping {
     uint32_t mask[4];
     uint32_t desc[4];
     uint32_t btns_mask[32];
-    int32_t axes_idx[ADAPTER_PS2_MAX_AXES];
+    uint32_t axes_to_btns[ADAPTER_PS2_MAX_AXES];
     struct ctrl_meta meta[ADAPTER_PS2_MAX_AXES];
 };
 

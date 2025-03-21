@@ -21,13 +21,12 @@ struct hid_stack_element {
     int32_t logical_min;
     int32_t logical_max;
     uint32_t usage_page;
-    uint32_t usage_max;
 };
 
 static struct hid_report *reports[BT_MAX_DEV][HID_MAX_REPORT] = {0};
 
 /* List of usage we don't care about */
-static uint32_t hid_usage_is_collection(uint32_t page, uint32_t usage) {
+static uint32_t hid_usage_is_collection(uint8_t page, uint16_t usage) {
     switch (page) {
         case 0x01: /* Generic Desktop Ctrls */
             switch (usage) {
@@ -126,101 +125,6 @@ static uint32_t hid_usage_is_collection(uint32_t page, uint32_t usage) {
                 default:
                     return 0;
             }
-        case 0x0F: /* PID */
-            switch (usage) {
-                case 0x01:
-                case 0x21:
-                case 0x25:
-                case 0x57:
-                case 0x58:
-                case 0x59:
-                case 0x5A:
-                case 0x5F:
-                case 0x66:
-                case 0x68:
-                case 0x6B:
-                case 0x6E:
-                case 0x73:
-                case 0x74:
-                case 0x77:
-                case 0x78:
-                case 0x7D:
-                case 0x7F:
-                case 0x85:
-                case 0x89:
-                case 0x8B:
-                case 0x90:
-                case 0x91:
-                case 0x92:
-                case 0x95:
-                case 0x96:
-                case 0xA8:
-                case 0xAB:
-                    return 1;
-                default:
-                    return 0;
-            }
-        default:
-            return 0;
-    }
-}
-
-/* List of usage we care about */
-static uint32_t hid_usage_is_used(uint32_t page, uint32_t usage) {
-    switch (page) {
-        case 0x01: /* Generic Desktop Ctrls */
-            switch (usage) {
-                case 0x30: /* X */
-                case 0x31: /* Y */
-                case 0x32: /* Z */
-                case 0x33: /* RX */
-                case 0x34: /* RY */
-                case 0x35: /* RZ */
-                case 0x36: /* Slider */
-                case 0x37: /* Dial */
-                case 0x38: /* Wheel */
-                case 0x39: /* Hat */
-                case 0x85: /* Sys Main Menu */
-                    return 1;
-                default:
-                    return 0;
-            }
-        case 0x02: /* Sim Ctrls */
-            switch (usage) {
-                case 0xC4: /* Accel */
-                case 0xC5: /* Brake */
-                    return 1;
-                default:
-                    return 0;
-            }
-        case 0x07: /* Keyboard */
-            return 1;
-        case 0x09: /* Button */
-            if (usage <= 20) {
-                return 1;
-            }
-            return 0;
-        case 0x0C: /* Consumer */
-            switch (usage) {
-                case 0x40 /* Menu */:
-                case 0xB2 /* Record */:
-                case 0x223 /* AC Home */:
-                case 0x224 /* AC Back */:
-                    return 1;
-                default:
-                    return 0;
-            }
-        case 0x0F: /* PID */
-            switch (usage) {
-                case 0x50: /* Duration */
-                case 0x97: /* Enable Actuators */
-                case 0x70: /* Magnitude */
-                case 0x7C: /* Loop Count */
-                case 0xA7: /* Start Delay */
-                    return 1;
-                default:
-                    return 0;
-            }
         default:
             return 0;
     }
@@ -228,7 +132,7 @@ static uint32_t hid_usage_is_used(uint32_t page, uint32_t usage) {
 
 static int32_t hid_report_fingerprint(struct hid_report *report) {
     int32_t type = REPORT_NONE;
-    for (uint32_t i = 0; i < report->usage_cnt; i++) {
+    for (uint32_t i = 0; i < REPORT_MAX_USAGE; i++) {
         if (report->usages[i].usage_page) {
             switch (report->usages[i].usage_page) {
                 case USAGE_GEN_DESKTOP:
@@ -244,13 +148,10 @@ static int32_t hid_report_fingerprint(struct hid_report *report) {
                             }
                         case 0x39: /* HAT_SWITCH */
                             return PAD;
-                        case 0x85: /* Sys Main Menu */
-                            return MOUSE; /* Hack for xinput Xbox btn */
                     }
                     break;
                 case USAGE_GEN_KEYBOARD:
-                    type = KB;
-                    break;
+                    return KB;
                 case USAGE_GEN_BUTTON:
                     type = PAD;
                     break;
@@ -288,12 +189,8 @@ static int32_t hid_report_fingerprint(struct hid_report *report) {
 static void hid_patch_report(struct bt_data *bt_data, struct hid_report *report) {
     switch (bt_data->base.vid) {
         case 0x3250: /* Atari VCS */
-        {
-            uint32_t usage_cnt = 8;
             switch (bt_data->base.pid) {
                 case 0x1001: /* Classic Controller */
-                    usage_cnt = 4;
-                    /* Fallthrough */
                 case 0x1002: /* Modern Controller */
                     /* Rumble report */
                     if (report->id == 1 && report->tag == 1) {
@@ -301,21 +198,16 @@ static void hid_patch_report(struct bt_data *bt_data, struct hid_report *report)
                             0x70, 0x50, 0xA7, 0x7C, /* LF (left) */
                             0x70, 0x50, 0xA7, 0x7C, /* HF (right) */
                         };
-                        report->usage_cnt = usage_cnt;
-                        for (uint32_t i = 0; i < usage_cnt; i++) {
-                            memset(&report->usages[i], 0, sizeof(report->usages[0]));
+                        for (uint32_t i = 0; i < report->usage_cnt; i++) {
                             report->usages[i].usage_page = USAGE_GEN_PHYS_INPUT;
                             report->usages[i].usage = usages[i];
                             report->usages[i].logical_min = 0;
                             report->usages[i].logical_max = 0xFF;
-                            report->usages[i].bit_size = 8;
-                            report->usages[i].bit_offset = i * 8;
                         }
                     }
                     break;
             }
             break;
-        }
     }
 }
 
@@ -450,15 +342,10 @@ void hid_parser(struct bt_data *bt_data, uint8_t *data, uint32_t len) {
                 desc += 4;
                 break;
             case HID_LI_USAGE_MAX(1): /* 0x29 */
-                hid_stack[hid_stack_idx].usage_max = *(int8_t *)desc++;
+                desc++;
                 break;
             case HID_LI_USAGE_MAX(2): /* 0x2A */
-                hid_stack[hid_stack_idx].usage_max = *(int16_t *)desc;
                 desc += 2;
-                break;
-            case HID_LI_USAGE_MAX(3): /* 0x2B */
-                hid_stack[hid_stack_idx].usage_max = *(int32_t *)desc;
-                desc += 4;
                 break;
             case 0x35: /* PHYSICAL_MIN */
                 desc++;
@@ -488,42 +375,74 @@ void hid_parser(struct bt_data *bt_data, uint8_t *data, uint32_t len) {
                 /* Fallthrough */
             case HID_MI_INPUT: /* 0x81 */
                 if (!(*desc & 0x01) && hid_stack[hid_stack_idx].usage_page != 0xFF && usage_list[0] != 0xFF && report_usage_idx[tag_idx] < REPORT_MAX_USAGE) {
-                    bool bitfield_merge = (usage_idx == 1 && hid_stack[hid_stack_idx].report_size == 1 && hid_stack[hid_stack_idx].report_cnt > 1);
-                    uint32_t usage_cnt = (bitfield_merge) ? 1 : hid_stack[hid_stack_idx].report_cnt;
-                    for (uint32_t i = 0; i < usage_cnt; i++) {
-                        if (hid_usage_is_used(hid_stack[hid_stack_idx].usage_page, usage_list[i])) {
-                            uint32_t frag_cnt = 1;
-                            if (bitfield_merge) {
-                                frag_cnt = hid_stack[hid_stack_idx].report_cnt / 32;
-                                if (hid_stack[hid_stack_idx].report_cnt % 32) {
-                                    frag_cnt++;
-                                }
-                            }
-                            for (uint32_t j = 0; j < frag_cnt; j++) {
-                                uint32_t usage_offset = j * 32;
+                    if (hid_stack[hid_stack_idx].report_size == 1) {
+                        if (hid_stack[hid_stack_idx].report_cnt > 32) {
+                            uint32_t bit_cnt = hid_stack[hid_stack_idx].report_cnt;
+                            uint32_t div = 32;
+                            uint32_t usage = usage_list[0];
+
+                            while (bit_cnt) {
                                 wip_report[tag_idx]->usages[report_usage_idx[tag_idx]].usage_page = hid_stack[hid_stack_idx].usage_page;
-                                wip_report[tag_idx]->usages[report_usage_idx[tag_idx]].usage = (usage_idx == 1) ? usage_list[0] : usage_list[i];
-                                wip_report[tag_idx]->usages[report_usage_idx[tag_idx]].usage += usage_offset;
+                                wip_report[tag_idx]->usages[report_usage_idx[tag_idx]].usage = usage;
                                 wip_report[tag_idx]->usages[report_usage_idx[tag_idx]].flags = *desc;
                                 wip_report[tag_idx]->usages[report_usage_idx[tag_idx]].bit_offset = report_bit_offset[tag_idx];
-                                wip_report[tag_idx]->usages[report_usage_idx[tag_idx]].bit_offset += usage_offset;
-                                wip_report[tag_idx]->usages[report_usage_idx[tag_idx]].bit_size = hid_stack[hid_stack_idx].report_size;
+                                wip_report[tag_idx]->usages[report_usage_idx[tag_idx]].bit_size = div;
                                 wip_report[tag_idx]->usages[report_usage_idx[tag_idx]].logical_min = hid_stack[hid_stack_idx].logical_min;
                                 wip_report[tag_idx]->usages[report_usage_idx[tag_idx]].logical_max = hid_stack[hid_stack_idx].logical_max;
-                                wip_report[tag_idx]->usages[report_usage_idx[tag_idx]].usage_max = hid_stack[hid_stack_idx].usage_max;
-                                if (bitfield_merge) {
-                                    wip_report[tag_idx]->usages[report_usage_idx[tag_idx]].bit_size *= (frag_cnt > 1) ? 32 : hid_stack[hid_stack_idx].report_cnt;
+                                report_bit_offset[tag_idx] += div;
+                                usage += div;
+
+                                bit_cnt -= div;
+                                while (bit_cnt < div) {
+                                    div /= 2;
                                 }
-                                if (frag_cnt > 1 && j == (frag_cnt - 1)) {
-                                    wip_report[tag_idx]->usages[report_usage_idx[tag_idx]].bit_size = hid_stack[hid_stack_idx].report_cnt % 32;
-                                }
-                                report_usage_idx[tag_idx]++;
+                                ++report_usage_idx[tag_idx];
                             }
                         }
-                        if (bitfield_merge) {
-                            report_bit_offset[tag_idx] += hid_stack[hid_stack_idx].report_cnt * hid_stack[hid_stack_idx].report_size;
-                        }
                         else {
+                            uint32_t idx_end = report_usage_idx[tag_idx] + hid_stack[hid_stack_idx].report_cnt;
+                            if (idx_end > REPORT_MAX_USAGE) {
+                                idx_end = REPORT_MAX_USAGE;
+                            }
+                            if (hid_stack[hid_stack_idx].usage_page != 0x0C) {
+                                idx_end = report_usage_idx[tag_idx] + 1;
+                            }
+                            for (uint32_t i = 0; report_usage_idx[tag_idx] < idx_end; ++i, ++report_usage_idx[tag_idx]) {
+                                wip_report[tag_idx]->usages[report_usage_idx[tag_idx]].usage_page = hid_stack[hid_stack_idx].usage_page;
+                                wip_report[tag_idx]->usages[report_usage_idx[tag_idx]].usage = usage_list[i];
+                                wip_report[tag_idx]->usages[report_usage_idx[tag_idx]].flags = *desc;
+                                wip_report[tag_idx]->usages[report_usage_idx[tag_idx]].bit_offset = report_bit_offset[tag_idx];
+                                wip_report[tag_idx]->usages[report_usage_idx[tag_idx]].logical_min = hid_stack[hid_stack_idx].logical_min;
+                                wip_report[tag_idx]->usages[report_usage_idx[tag_idx]].logical_max = hid_stack[hid_stack_idx].logical_max;
+                                if (hid_stack[hid_stack_idx].usage_page == 0x0C) {
+                                    wip_report[tag_idx]->usages[report_usage_idx[tag_idx]].bit_size = hid_stack[hid_stack_idx].report_size;
+                                    report_bit_offset[tag_idx] += hid_stack[hid_stack_idx].report_size;
+                                }
+                                else {
+                                    wip_report[tag_idx]->usages[report_usage_idx[tag_idx]].bit_size = hid_stack[hid_stack_idx].report_cnt * hid_stack[hid_stack_idx].report_size;
+                                    report_bit_offset[tag_idx] += hid_stack[hid_stack_idx].report_cnt * hid_stack[hid_stack_idx].report_size;
+                                }
+                            }
+                        }
+                    }
+                    else {
+                        uint32_t idx_end = report_usage_idx[tag_idx] + hid_stack[hid_stack_idx].report_cnt;
+                        if (idx_end > REPORT_MAX_USAGE) {
+                            idx_end = REPORT_MAX_USAGE;
+                        }
+                        for (uint32_t i = 0; report_usage_idx[tag_idx] < idx_end; ++i, ++report_usage_idx[tag_idx]) {
+                            wip_report[tag_idx]->usages[report_usage_idx[tag_idx]].usage_page = hid_stack[hid_stack_idx].usage_page;
+                            if (usage_idx < 2) {
+                                wip_report[tag_idx]->usages[report_usage_idx[tag_idx]].usage = usage_list[0];
+                            }
+                            else {
+                                wip_report[tag_idx]->usages[report_usage_idx[tag_idx]].usage = usage_list[i];
+                            }
+                            wip_report[tag_idx]->usages[report_usage_idx[tag_idx]].flags = *desc;
+                            wip_report[tag_idx]->usages[report_usage_idx[tag_idx]].bit_offset = report_bit_offset[tag_idx];
+                            wip_report[tag_idx]->usages[report_usage_idx[tag_idx]].bit_size = hid_stack[hid_stack_idx].report_size;
+                            wip_report[tag_idx]->usages[report_usage_idx[tag_idx]].logical_min = hid_stack[hid_stack_idx].logical_min;
+                            wip_report[tag_idx]->usages[report_usage_idx[tag_idx]].logical_max = hid_stack[hid_stack_idx].logical_max;
                             report_bit_offset[tag_idx] += hid_stack[hid_stack_idx].report_size;
                         }
                     }

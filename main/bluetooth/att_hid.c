@@ -151,6 +151,7 @@ static void bt_att_hid_process_pnp(struct bt_dev *device,
     }
     printf("%s: VID: 0x%04X PID: 0x%04X\n", __FUNCTION__, bt_data->base.vid, bt_data->base.pid);
     bt_mon_log(true, "%s: VID: 0x%04X PID: 0x%04X\n", __FUNCTION__, bt_data->base.vid, bt_data->base.pid);
+    mapping_quirks_apply_pnp(bt_data);
     bt_att_hid_start_next_state(device, hid_data);
 }
 
@@ -445,7 +446,6 @@ static bit_att_hid_start_func_t start_state_func[BT_ATT_HID_STATE_MAX] = {
 static bit_att_hid_process_func_t process_state_func[BT_ATT_HID_STATE_MAX] = {
     bt_att_hid_process_device_name,
     bt_att_hid_process_appearance,
-    bt_att_hid_process_pnp,
     bt_att_hid_process_find_hid_hdls,
     bt_att_hid_process_ident_hid_hdls,
     bt_att_hid_process_char_prop,
@@ -480,13 +480,13 @@ static void bt_att_hid_start_next_state(struct bt_dev *device,
     }
 }
 
-static int32_t bt_att_get_report_index(struct bt_att_hid *hid_data, uint8_t report_id, uint8_t report_type) {
+static uint32_t bt_att_get_report_index(struct bt_att_hid *hid_data, uint8_t report_id) {
     for (uint32_t i = 0; i < HID_MAX_REPORT; i++) {
-        if (hid_data->reports[i].id == report_id && hid_data->reports[i].type == report_type) {
+        if (hid_data->reports[i].id == report_id) {
             return i;
         }
     }
-    return -1;
+    return 0;
 }
 
 void bt_att_hid_init(struct bt_dev *device) {
@@ -497,19 +497,16 @@ void bt_att_hid_init(struct bt_dev *device) {
 
 void bt_att_write_hid_report(struct bt_dev *device, uint8_t report_id, uint8_t *data, uint32_t len) {
     struct bt_att_hid *hid_data = &att_hid[device->ids.id];
+    uint32_t index = bt_att_get_report_index(hid_data, report_id);
+    uint16_t att_handle = hid_data->reports[index].report_hdl;
+    uint8_t char_prop = hid_data->reports[index].char_prop;
 
-    int32_t index = bt_att_get_report_index(hid_data, report_id, 0x02);
-    if (index > -1) {
-        uint16_t att_handle = hid_data->reports[index].report_hdl;
-        uint8_t char_prop = hid_data->reports[index].char_prop;
-
-        if (att_handle) {
-            if (char_prop & BT_GATT_CHRC_WRITE) {
-                bt_att_cmd_write_req(device->acl_handle, att_handle, data, len);
-            }
-            else {
-                bt_att_cmd_write_cmd(device->acl_handle, att_handle, data, len);
-            }
+    if (att_handle) {
+        if (char_prop & BT_GATT_CHRC_WRITE) {
+            bt_att_cmd_write_req(device->acl_handle, att_handle, data, len);
+        }
+        else {
+            bt_att_cmd_write_cmd(device->acl_handle, att_handle, data, len);
         }
     }
 }
