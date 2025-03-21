@@ -280,7 +280,7 @@ static void bt_fb_task(void *param) {
             }
             delay_cnt = BT_FB_TASK_DELAY_CNT;
         }
-        vTaskDelay(100 / portTICK_PERIOD_MS);
+        vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }
 
@@ -310,7 +310,7 @@ static void bt_host_task(void *param) {
         /* Update turbo mask for parallel system */
         wired_para_turbo_mask_hdlr();
 
-        vTaskDelay(16 / portTICK_PERIOD_MS);
+        vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }
 
