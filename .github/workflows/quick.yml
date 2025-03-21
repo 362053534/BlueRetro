@@ -9,7 +9,7 @@ on:
       br_config:
         description: 'BlueRetro config'
         required: true
-        default: 'universal'
+        default: 'playstation'
 
 jobs:
   build:
