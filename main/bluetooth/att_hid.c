@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2025, Jacques Gagnon
+ * Copyright (c) 2019-2023, Jacques Gagnon
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -7,14 +7,11 @@
 #include "host.h"
 #include "hci.h"
 #include "att.h"
-#include "att_cfg.h"
 #include "att_hid.h"
-#include "mon.h"
 #include "zephyr/uuid.h"
 #include "zephyr/att.h"
 #include "zephyr/gatt.h"
 #include "adapter/hid_parser.h"
-#include "adapter/mapping_quirks.h"
 #ifdef CONFIG_BLUERETRO_ADAPTER_RUMBLE_TEST
 #include "bluetooth/hidp/xbox.h"
 #endif
@@ -22,7 +19,6 @@
 enum {
     BT_ATT_HID_DEVICE_NAME = 0,
     BT_ATT_HID_APPEARANCE,
-    BT_ATT_HID_PNP,
     BT_ATT_HID_FIND_HID_HDLS,
     BT_ATT_HID_IDENT_HID_HLDS,
     BT_ATT_HID_CHAR_PROP,
@@ -114,8 +110,7 @@ static void bt_att_hid_process_device_name(struct bt_dev *device,
     }
 
     bt_hid_set_type_flags_from_name(device, hid_data->device_name);
-    printf("dev: %ld type: %ld %s\n", device->ids.id, device->ids.type, hid_data->device_name);
-    bt_mon_log(true, "dev: %ld type: %ld %s\n", device->ids.id, device->ids.type, hid_data->device_name);
+    printf("# dev: %ld type: %ld %s\n", device->ids.id, device->ids.type, hid_data->device_name);
 
     bt_att_hid_start_next_state(device, hid_data);
 }
@@ -130,28 +125,8 @@ static void bt_att_hid_process_appearance(struct bt_dev *device,
     if (data) {
         hid_data->appearance = *(uint16_t *)data;
     }
-    printf("dev: %ld appearance: %03X:%02X\n",
+    printf("# dev: %ld appearance: %03X:%02X\n",
         device->ids.id, hid_data->appearance >> 6, hid_data->appearance & 0x3F);
-    bt_mon_log(true, "dev: %ld appearance: %03X:%02X\n",
-        device->ids.id, hid_data->appearance >> 6, hid_data->appearance & 0x3F);
-    bt_att_hid_start_next_state(device, hid_data);
-}
-
-static void bt_att_hid_start_pnp(struct bt_dev *device,
-        struct bt_att_hid *hid_data) {
-    bt_att_cmd_read_type_req_uuid16(device->acl_handle, 0x0001, 0xFFFF, BT_UUID_DIS_PNP_ID);
-}
-
-static void bt_att_hid_process_pnp(struct bt_dev *device,
-        struct bt_att_hid *hid_data, uint32_t att_len, uint8_t *data, uint32_t data_len) {
-    struct bt_data *bt_data = &bt_adapter.data[device->ids.id];
-    if (data) {
-        bt_data->base.vid = *(uint16_t *)&data[1];
-        bt_data->base.pid = *(uint16_t *)&data[3];
-    }
-    printf("%s: VID: 0x%04X PID: 0x%04X\n", __FUNCTION__, bt_data->base.vid, bt_data->base.pid);
-    bt_mon_log(true, "%s: VID: 0x%04X PID: 0x%04X\n", __FUNCTION__, bt_data->base.vid, bt_data->base.pid);
-    mapping_quirks_apply_pnp(bt_data);
     bt_att_hid_start_next_state(device, hid_data);
 }
 
@@ -221,8 +196,7 @@ static void bt_att_hid_process_ident_hid_hdls(struct bt_dev *device,
                 uuid = *(uint16_t *)&info128[i].uuid[12];
             }
 
-            printf("INFO HDL: %04X UUID: %04X REPORT_CNT: %d\n", handle, uuid, hid_data->report_cnt);
-            bt_mon_log(true, "INFO HDL: %04X UUID: %04X REPORT_CNT: %d\n", handle, uuid, hid_data->report_cnt);
+            printf("# INFO HDL: %04X UUID: %04X REPORT_CNT: %d\n", handle, uuid, hid_data->report_cnt);
 
             switch (uuid) {
                 case BT_UUID_GATT_PRIMARY:
@@ -287,8 +261,7 @@ static void bt_att_hid_process_char_prop(struct bt_dev *device,
         for (uint32_t i = 0; i < elem_cnt; i++) {
             for (uint32_t j = 0; j < HID_MAX_REPORT; j++) {
                 if (hid_data->reports[j].report_hdl == read_type_data[i].char_value_handle) {
-                    printf("CHAR_PROP Handl: %04X Prop: %02X\n", read_type_data[i].char_value_handle, read_type_data[i].char_prop);
-                    bt_mon_log(true, "CHAR_PROP Handl: %04X Prop: %02X\n", read_type_data[i].char_value_handle, read_type_data[i].char_prop);
+                    printf("# CHAR_PROP Handl: %04X Prop: %02X\n", read_type_data[i].char_value_handle, read_type_data[i].char_prop);
                     hid_data->reports[j].char_prop = read_type_data[i].char_prop;
                 }
             }
@@ -432,7 +405,6 @@ static void bt_att_hid_start_init(struct bt_dev *device,
 static bit_att_hid_start_func_t start_state_func[BT_ATT_HID_STATE_MAX] = {
     bt_att_hid_start_device_name,
     bt_att_hid_start_appearance,
-    bt_att_hid_start_pnp,
     bt_att_hid_start_find_hid_hdls,
     bt_att_hid_start_ident_hid_hdls,
     bt_att_hid_start_char_prop,
@@ -558,18 +530,10 @@ void bt_att_hid_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, u
                 switch (device->hid_state) {
                     case BT_ATT_HID_DEVICE_NAME:
                         hid_data->dev_name_hdl = read_type_rsp->data[0].handle;
-                        if (rsp_len) {
-                            bt_att_hid_process_device_name(device, hid_data, att_len, read_type_rsp->data[0].value, rsp_len);
-                        }
-                        else {
-                            bt_att_cmd_read_req(device->acl_handle, read_type_rsp->data[0].handle);
-                        }
+                        bt_att_hid_process_device_name(device, hid_data, att_len, read_type_rsp->data[0].value, rsp_len);
                         break;
                     case BT_ATT_HID_APPEARANCE:
                         bt_att_hid_process_appearance(device, hid_data, att_len, read_type_rsp->data[0].value, rsp_len);
-                        break;
-                    case BT_ATT_HID_PNP:
-                        bt_att_hid_process_pnp(device, hid_data, att_len, read_type_rsp->data[0].value, rsp_len);
                         break;
                     case BT_ATT_HID_CHAR_PROP:
                         bt_att_hid_process_char_prop(device, hid_data, att_len, (uint8_t *)read_type_rsp->data, read_type_rsp->len);
@@ -593,9 +557,6 @@ void bt_att_hid_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, u
 
             if (!atomic_test_bit(&device->flags, BT_DEV_HID_INTR_READY)) {
                 switch (device->hid_state) {
-                    case BT_ATT_HID_DEVICE_NAME:
-                        bt_att_hid_process_device_name(device, hid_data, att_len, read_rsp->value, att_len - 1);
-                        break;
                     case BT_ATT_HID_REPORT_MAP:
                         bt_att_hid_process_report_map(device, hid_data, att_len, read_rsp->value, att_len - 1);
                         break;
@@ -679,10 +640,6 @@ void bt_att_hid_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, u
                     break;
                 }
             }
-            break;
         }
-        default:
-            bt_att_cfg_hdlr(device, bt_hci_acl_pkt, len);
-            break;
     }
 }

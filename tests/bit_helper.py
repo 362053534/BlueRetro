@@ -9,10 +9,6 @@ def swap16(i):
     ''' Byte swap a 16bit value i. '''
     return struct.unpack("<H", struct.pack(">H", i))[0]
 
-def sswap16(i):
-    ''' Byte swap a 16bit value i. '''
-    return struct.unpack("<H", struct.pack(">h", i))[0]
-
 def swap24(i):
     ''' Swap i as if a 32bit value but then shift right by 8. '''
     return struct.unpack("<I", struct.pack(">I", i))[0] >> 8

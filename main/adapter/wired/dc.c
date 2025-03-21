@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2025, Jacques Gagnon
+ * Copyright (c) 2019-2024, Jacques Gagnon
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -9,8 +9,6 @@
 #include "adapter/config.h"
 #include "adapter/wired/wired.h"
 #include "system/manager.h"
-#include "tests/cmds.h"
-#include "bluetooth/mon.h"
 #include "dc.h"
 
 #define DC_TIMEOUT_TO_US 250000
@@ -314,12 +312,11 @@ static void dc_ctrl_from_generic(struct wired_ctrl *ctrl_data, struct wired_data
 
     memcpy(wired_data->output, (void *)&map_tmp, sizeof(map_tmp));
 
-    TESTS_CMDS_LOG("\"wired_output\": {\"axes\": [%d, %d, %d, %d, %d, %d], \"btns\": %d},\n",
+#ifdef CONFIG_BLUERETRO_RAW_OUTPUT
+    printf("{\"log_type\": \"wired_output\", \"axes\": [%d, %d, %d, %d, %d, %d], \"btns\": %d}\n",
         map_tmp.axes[dc_axes_idx[0]], map_tmp.axes[dc_axes_idx[1]], map_tmp.axes[dc_axes_idx[2]],
         map_tmp.axes[dc_axes_idx[3]], map_tmp.axes[dc_axes_idx[4]], map_tmp.axes[dc_axes_idx[5]], map_tmp.buttons);
-    BT_MON_LOG("\"wired_output\": {\"axes\": [%02X, %02X, %02X, %02X, %02X, %02X], \"btns\": %04X},\n",
-        map_tmp.axes[dc_axes_idx[0]], map_tmp.axes[dc_axes_idx[1]], map_tmp.axes[dc_axes_idx[2]],
-        map_tmp.axes[dc_axes_idx[3]], map_tmp.axes[dc_axes_idx[4]], map_tmp.axes[dc_axes_idx[5]], map_tmp.buttons);
+#endif
 }
 
 static void dc_mouse_from_generic(struct wired_ctrl *ctrl_data, struct wired_data *wired_data) {

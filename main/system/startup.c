@@ -9,8 +9,6 @@
 
 #include "esp_attr.h"
 #include "esp_err.h"
-#include "esp_compiler.h"
-#include "esp_macros.h"
 
 #include "esp_system.h"
 #include "esp_log.h"
@@ -27,7 +25,7 @@
 #endif
 
 // Ensure that system configuration matches the underlying number of cores.
-// This should enable us to avoid checking for both every time.
+// This should enable us to avoid checking for both everytime.
 #if !(SOC_CPU_CORES_NUM > 1) && !CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE
 #error "System has been configured to run on multiple cores, but target SoC only has a single core."
 #endif
@@ -111,13 +109,10 @@ static void do_global_ctors(void)
     }
 #endif
 
-    ESP_COMPILER_DIAGNOSTIC_PUSH_IGNORE("-Wanalyzer-out-of-bounds")
     for (p = &__init_array_end - 1; p >= &__init_array_start; --p) {
         ESP_LOGD(TAG, "calling init function: %p", *p);
         (*p)();
     }
-    ESP_COMPILER_DIAGNOSTIC_POP("-Wanalyzer-out-of-bounds")
-
 }
 
 /**
@@ -233,6 +228,5 @@ static void start_cpu0_default(void)
 #endif
 
     esp_startup_start_app();
-
-    ESP_INFINITE_LOOP();
+    while (1);
 }

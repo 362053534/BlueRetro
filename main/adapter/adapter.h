@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2025, Jacques Gagnon
+ * Copyright (c) 2019-2024, Jacques Gagnon
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -9,8 +9,6 @@
 #include <stdio.h>
 #include <esp_attr.h>
 #include "zephyr/atomic.h"
-#include "tests/cmds.h"
-#include "bluetooth/mon.h"
 
 #ifndef __packed
 #define __packed __attribute__((__packed__))
@@ -24,7 +22,7 @@
 #define WIRED_MAX_DEV 12 /* Saturn limit */
 #define ADAPTER_MAX_AXES 6
 #define ADAPTER_PS2_MAX_AXES 16
-#define REPORT_MAX_USAGE 24
+#define REPORT_MAX_USAGE 16
 #define HID_MAX_REPORT 10
 #define MAX_PULL_BACK 0.95
 
@@ -59,6 +57,7 @@ enum {
     BT_SW_SNES,
     BT_SW_N64,
     BT_SW_MD_GEN,
+    BT_SW_POWERA,
     BT_SW_HYPERKIN_ADMIRAL,
     BT_8BITDO_GBROS,
     BT_SUBTYPE_MAX,
@@ -99,6 +98,7 @@ enum {
     KB,
     MOUSE,
     PAD,
+    EXTRA,
     RUMBLE,
     REPORT_MAX,
     //LEDS,
@@ -514,11 +514,7 @@ struct bt_data_base {
     uint32_t input_len;
     uint8_t *sdp_data;
     uint32_t sdp_len;
-    uint8_t *pnp_data;
-    uint32_t pnp_len;
     int32_t axes_cal[ADAPTER_PS2_MAX_AXES];
-    uint16_t vid;
-    uint16_t pid;
     uint8_t output[128];
 };
 
@@ -602,10 +598,7 @@ static inline void bt_type_update(int32_t dev_id, int32_t type, uint32_t subtype
         for (uint32_t i = 0; i < REPORT_MAX; i++) {
             atomic_clear_bit(&bt_data->base.flags[i], BT_INIT);
         }
-        printf("%s: dev: %ld type: %ld subtype: %ld\n", __FUNCTION__, dev_id, type, subtype);
-        TESTS_CMDS_LOG("\"type_update\": {\"device_id\": %d, \"device_type\": %d, \"device_subtype\": %d},\n",
-            dev_id, type, subtype);
-        bt_mon_log(true, "%s: dev: %ld type: %ld subtype: %ld\n", __FUNCTION__, dev_id, type, subtype);
+        printf("# %s: dev: %ld type: %ld subtype: %ld\n", __FUNCTION__, dev_id, type, subtype);
     }
 }
 

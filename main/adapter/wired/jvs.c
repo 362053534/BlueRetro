@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2025, Jacques Gagnon
+ * Copyright (c) 2019-2023, Jacques Gagnon
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,8 +8,6 @@
 #include "zephyr/atomic.h"
 #include "tools/util.h"
 #include "adapter/wired/wired.h"
-#include "tests/cmds.h"
-#include "bluetooth/mon.h"
 #include "jvs.h"
 
 #define JVS_AXES_MAX 2
@@ -156,12 +154,11 @@ void jvs_from_generic(int32_t dev_mode, struct wired_ctrl *ctrl_data, struct wir
 
     memcpy(wired_data->output, (void *)&map_tmp, sizeof(map_tmp));
 
-    TESTS_CMDS_LOG("\"wired_output\": {\"axes\": [%d, %d], \"btns\": %d, \"COINS\": %d, \"TEST\": %d},\n",
+#ifdef CONFIG_BLUERETRO_RAW_OUTPUT
+    printf("{\"log_type\": \"wired_output\", \"axes\": [%d, %d], \"btns\": %d, \"COINS\": %d, \"TEST\": %d}\n",
         map_tmp.axes[jvs_axes_idx[0]], map_tmp.axes[jvs_axes_idx[1]],
         map_tmp.buttons, map_tmp.coins, map_tmp.test);
-    BT_MON_LOG("\"wired_output\": {\"axes\": [%04X, %04X], \"btns\": %04X, \"COINS\": %04X, \"TEST\": %02X},\n",
-        map_tmp.axes[jvs_axes_idx[0]], map_tmp.axes[jvs_axes_idx[1]],
-        map_tmp.buttons, map_tmp.coins, map_tmp.test);
+#endif
 }
 
 void IRAM_ATTR jvs_gen_turbo_mask(struct wired_data *wired_data) {

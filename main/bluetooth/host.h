@@ -17,7 +17,6 @@
 
 #define BT_MAX_RETRY 3
 #define BT_SDP_DATA_SIZE 2048
-#define BT_PNP_DATA_SIZE 256
 
 enum {
     /* BT device connection flags */
@@ -75,7 +74,6 @@ struct bt_dev {
     uint32_t hid_state;
     void *timer_hdl;
     uint8_t tid;
-    uint8_t hid_retry_cnt;
     const struct bt_name_type *name;
     union {
         struct {

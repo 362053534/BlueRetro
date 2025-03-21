@@ -8,11 +8,8 @@ from device_data.br import hat_to_ld_btns
 def test_sw_nes_left_controller_default_buttons_mapping_native_report(blueretro):
     ''' Press each buttons and check if default mapping is right. '''
     # Set device name
-    rsp = blueretro.send_name('NES Controller (L)')
-    assert rsp['device_name']['device_id'] == 0
-    assert rsp['device_name']['device_type'] == 5
-    assert rsp['device_name']['device_subtype'] == 13
-    assert rsp['device_name']['device_name'] == 'NES Controller (L)'
+    blueretro.send_name('NES Controller (L)')
+    blueretro.expect('# dev: 0 type: 5:13 NES Controller \\(L\\)')
 
     # Init adapter with a few neutral state report
     for _ in range(2):
@@ -26,9 +23,11 @@ def test_sw_nes_left_controller_default_buttons_mapping_native_report(blueretro)
             '0000000000000000000000'
         )
 
+    blueretro.flush_logs()
+
     # Validate buttons default mapping
     for sw_btns, br_btns in btns_generic_test_data(sw_n_nes_btns_mask):
-        rsp = blueretro.send_hid_report(
+        blueretro.send_hid_report(
             'a1300180'
             f'{swap24(sw_btns):06x}'
             '000000'
@@ -38,18 +37,18 @@ def test_sw_nes_left_controller_default_buttons_mapping_native_report(blueretro)
             '0000000000000000000000'
         )
 
-        assert rsp['wireless_input']['btns'] >> 8 == sw_btns
-        assert rsp['generic_input']['btns'][0] == br_btns
+        wireless = blueretro.expect_json('wireless_input')
+        br_generic = blueretro.expect_json('generic_input')
+
+        assert wireless['btns'] >> 8 == sw_btns
+        assert br_generic['btns'][0] == br_btns
 
 
 def test_sw_nes_right_controller_default_buttons_mapping_native_report(blueretro):
     ''' Press each buttons and check if default mapping is right. '''
     # Set device name
-    rsp = blueretro.send_name('NES Controller (R)')
-    assert rsp['device_name']['device_id'] == 0
-    assert rsp['device_name']['device_type'] == 5
-    assert rsp['device_name']['device_subtype'] == 13
-    assert rsp['device_name']['device_name'] == 'NES Controller (R)'
+    blueretro.send_name('NES Controller (R)')
+    blueretro.expect('# dev: 0 type: 5:13 NES Controller \\(R\\)')
 
     # Init adapter with a few neutral state report
     for _ in range(2):
@@ -63,9 +62,11 @@ def test_sw_nes_right_controller_default_buttons_mapping_native_report(blueretro
             '0000000000000000000000'
         )
 
+    blueretro.flush_logs()
+
     # Validate buttons default mapping
     for sw_btns, br_btns in btns_generic_test_data(sw_n_nes_btns_mask):
-        rsp = blueretro.send_hid_report(
+        blueretro.send_hid_report(
             'a1300180'
             f'{swap24(sw_btns):06x}'
             '000000'
@@ -75,18 +76,18 @@ def test_sw_nes_right_controller_default_buttons_mapping_native_report(blueretro
             '0000000000000000000000'
         )
 
-        assert rsp['wireless_input']['btns'] >> 8 == sw_btns
-        assert rsp['generic_input']['btns'][0] == br_btns
+        wireless = blueretro.expect_json('wireless_input')
+        br_generic = blueretro.expect_json('generic_input')
+
+        assert wireless['btns'] >> 8 == sw_btns
+        assert br_generic['btns'][0] == br_btns
 
 
 def test_sw_fc_left_controller_default_buttons_mapping_native_report(blueretro):
     ''' Press each buttons and check if default mapping is right. '''
     # Set device name
-    rsp = blueretro.send_name('HVC Controller (L)')
-    assert rsp['device_name']['device_id'] == 0
-    assert rsp['device_name']['device_type'] == 5
-    assert rsp['device_name']['device_subtype'] == 13
-    assert rsp['device_name']['device_name'] == 'HVC Controller (L)'
+    blueretro.send_name('HVC Controller (L)')
+    blueretro.expect('# dev: 0 type: 5:13 HVC Controller \\(L\\)')
 
     # Init adapter with a few neutral state report
     for _ in range(2):
@@ -100,9 +101,11 @@ def test_sw_fc_left_controller_default_buttons_mapping_native_report(blueretro):
             '0000000000000000000000'
         )
 
+    blueretro.flush_logs()
+
     # Validate buttons default mapping
     for sw_btns, br_btns in btns_generic_test_data(sw_n_nes_btns_mask):
-        rsp = blueretro.send_hid_report(
+        blueretro.send_hid_report(
             'a1300180'
             f'{swap24(sw_btns):06x}'
             '000000'
@@ -112,18 +115,18 @@ def test_sw_fc_left_controller_default_buttons_mapping_native_report(blueretro):
             '0000000000000000000000'
         )
 
-        assert rsp['wireless_input']['btns'] >> 8 == sw_btns
-        assert rsp['generic_input']['btns'][0] == br_btns
+        wireless = blueretro.expect_json('wireless_input')
+        br_generic = blueretro.expect_json('generic_input')
+
+        assert wireless['btns'] >> 8 == sw_btns
+        assert br_generic['btns'][0] == br_btns
 
 
 def test_sw_fc_right_controller_default_buttons_mapping_native_report(blueretro):
     ''' Press each buttons and check if default mapping is right. '''
     # Set device name
-    rsp = blueretro.send_name('HVC Controller (R)')
-    assert rsp['device_name']['device_id'] == 0
-    assert rsp['device_name']['device_type'] == 5
-    assert rsp['device_name']['device_subtype'] == 13
-    assert rsp['device_name']['device_name'] == 'HVC Controller (R)'
+    blueretro.send_name('HVC Controller (R)')
+    blueretro.expect('# dev: 0 type: 5:13 HVC Controller \\(R\\)')
 
     # Init adapter with a few neutral state report
     for _ in range(2):
@@ -137,9 +140,11 @@ def test_sw_fc_right_controller_default_buttons_mapping_native_report(blueretro)
             '0000000000000000000000'
         )
 
+    blueretro.flush_logs()
+
     # Validate buttons default mapping
     for sw_btns, br_btns in btns_generic_test_data(sw_n_nes_btns_mask):
-        rsp = blueretro.send_hid_report(
+        blueretro.send_hid_report(
             'a1300180'
             f'{swap24(sw_btns):06x}'
             '000000'
@@ -149,18 +154,18 @@ def test_sw_fc_right_controller_default_buttons_mapping_native_report(blueretro)
             '0000000000000000000000'
         )
 
-        assert rsp['wireless_input']['btns'] >> 8 == sw_btns
-        assert rsp['generic_input']['btns'][0] == br_btns
+        wireless = blueretro.expect_json('wireless_input')
+        br_generic = blueretro.expect_json('generic_input')
+
+        assert wireless['btns'] >> 8 == sw_btns
+        assert br_generic['btns'][0] == br_btns
 
 
 def test_sw_nes_left_controller_default_buttons_mapping_default_report(blueretro):
     ''' Press each buttons and check if default mapping is right. '''
     # Set device name
-    rsp = blueretro.send_name('NES Controller (L)')
-    assert rsp['device_name']['device_id'] == 0
-    assert rsp['device_name']['device_type'] == 5
-    assert rsp['device_name']['device_subtype'] == 13
-    assert rsp['device_name']['device_name'] == 'NES Controller (L)'
+    blueretro.send_name('NES Controller (L)')
+    blueretro.expect('# dev: 0 type: 5:13 NES Controller \\(L\\)')
 
     # Init adapter with a few neutral state report
     for _ in range(2):
@@ -171,39 +176,44 @@ def test_sw_nes_left_controller_default_buttons_mapping_default_report(blueretro
             '0080008000800080'
         )
 
+    blueretro.flush_logs()
+
     # Validate buttons default mapping
     for sw_btns, br_btns in btns_generic_test_data(sw_d_nes_btns_mask):
-        rsp = blueretro.send_hid_report(
+        blueretro.send_hid_report(
             'a13f'
             f'{swap16(sw_btns):04x}'
             '0f'
             '0080008000800080'
         )
 
-        assert rsp['wireless_input']['btns'] == sw_btns
-        assert rsp['generic_input']['btns'][0] == br_btns
+        wireless = blueretro.expect_json('wireless_input')
+        br_generic = blueretro.expect_json('generic_input')
+
+        assert wireless['btns'] == sw_btns
+        assert br_generic['btns'][0] == br_btns
 
     # Validate hat default mapping
     for hat_value, br_btns in enumerate(hat_to_ld_btns):
-        rsp = blueretro.send_hid_report(
+        blueretro.send_hid_report(
             'a13f'
             '0000'
             f'0{hat_value:01x}'
             '0080008000800080'
         )
 
-        assert rsp['wireless_input']['hat'] == hat_value
-        assert rsp['generic_input']['btns'][0] == br_btns
+        wireless = blueretro.expect_json('wireless_input')
+        br_generic = blueretro.expect_json('generic_input')
+
+        assert wireless['hat'] == hat_value
+        assert br_generic['btns'][0] == br_btns
 
 
 def test_sw_nes_right_controller_default_buttons_mapping_default_report(blueretro):
     ''' Press each buttons and check if default mapping is right. '''
     # Set device name
-    rsp = blueretro.send_name('NES Controller (R)')
-    assert rsp['device_name']['device_id'] == 0
-    assert rsp['device_name']['device_type'] == 5
-    assert rsp['device_name']['device_subtype'] == 13
-    assert rsp['device_name']['device_name'] == 'NES Controller (R)'
+    blueretro.send_name('NES Controller (R)')
+    blueretro.expect('# dev: 0 type: 5:13 NES Controller \\(R\\)')
 
     # Init adapter with a few neutral state report
     for _ in range(2):
@@ -214,39 +224,44 @@ def test_sw_nes_right_controller_default_buttons_mapping_default_report(blueretr
             '0080008000800080'
         )
 
+    blueretro.flush_logs()
+
     # Validate buttons default mapping
     for sw_btns, br_btns in btns_generic_test_data(sw_d_nes_btns_mask):
-        rsp = blueretro.send_hid_report(
+        blueretro.send_hid_report(
             'a13f'
             f'{swap16(sw_btns):04x}'
             '0f'
             '0080008000800080'
         )
 
-        assert rsp['wireless_input']['btns'] == sw_btns
-        assert rsp['generic_input']['btns'][0] == br_btns
+        wireless = blueretro.expect_json('wireless_input')
+        br_generic = blueretro.expect_json('generic_input')
+
+        assert wireless['btns'] == sw_btns
+        assert br_generic['btns'][0] == br_btns
 
     # Validate hat default mapping
     for hat_value, br_btns in enumerate(hat_to_ld_btns):
-        rsp = blueretro.send_hid_report(
+        blueretro.send_hid_report(
             'a13f'
             '0000'
             f'0{hat_value:01x}'
             '0080008000800080'
         )
 
-        assert rsp['wireless_input']['hat'] == hat_value
-        assert rsp['generic_input']['btns'][0] == br_btns
+        wireless = blueretro.expect_json('wireless_input')
+        br_generic = blueretro.expect_json('generic_input')
+
+        assert wireless['hat'] == hat_value
+        assert br_generic['btns'][0] == br_btns
 
 
 def test_sw_fc_left_controller_default_buttons_mapping_default_report(blueretro):
     ''' Press each buttons and check if default mapping is right. '''
     # Set device name
-    rsp = blueretro.send_name('HVC Controller (L)')
-    assert rsp['device_name']['device_id'] == 0
-    assert rsp['device_name']['device_type'] == 5
-    assert rsp['device_name']['device_subtype'] == 13
-    assert rsp['device_name']['device_name'] == 'HVC Controller (L)'
+    blueretro.send_name('HVC Controller (L)')
+    blueretro.expect('# dev: 0 type: 5:13 HVC Controller \\(L\\)')
 
     # Init adapter with a few neutral state report
     for _ in range(2):
@@ -257,39 +272,44 @@ def test_sw_fc_left_controller_default_buttons_mapping_default_report(blueretro)
             '0080008000800080'
         )
 
+    blueretro.flush_logs()
+
     # Validate buttons default mapping
     for sw_btns, br_btns in btns_generic_test_data(sw_d_nes_btns_mask):
-        rsp = blueretro.send_hid_report(
+        blueretro.send_hid_report(
             'a13f'
             f'{swap16(sw_btns):04x}'
             '0f'
             '0080008000800080'
         )
 
-        assert rsp['wireless_input']['btns'] == sw_btns
-        assert rsp['generic_input']['btns'][0] == br_btns
+        wireless = blueretro.expect_json('wireless_input')
+        br_generic = blueretro.expect_json('generic_input')
+
+        assert wireless['btns'] == sw_btns
+        assert br_generic['btns'][0] == br_btns
 
     # Validate hat default mapping
     for hat_value, br_btns in enumerate(hat_to_ld_btns):
-        rsp = blueretro.send_hid_report(
+        blueretro.send_hid_report(
             'a13f'
             '0000'
             f'0{hat_value:01x}'
             '0080008000800080'
         )
 
-        assert rsp['wireless_input']['hat'] == hat_value
-        assert rsp['generic_input']['btns'][0] == br_btns
+        wireless = blueretro.expect_json('wireless_input')
+        br_generic = blueretro.expect_json('generic_input')
+
+        assert wireless['hat'] == hat_value
+        assert br_generic['btns'][0] == br_btns
 
 
 def test_sw_fc_right_controller_default_buttons_mapping_default_report(blueretro):
     ''' Press each buttons and check if default mapping is right. '''
     # Set device name
-    rsp = blueretro.send_name('HVC Controller (R)')
-    assert rsp['device_name']['device_id'] == 0
-    assert rsp['device_name']['device_type'] == 5
-    assert rsp['device_name']['device_subtype'] == 13
-    assert rsp['device_name']['device_name'] == 'HVC Controller (R)'
+    blueretro.send_name('HVC Controller (R)')
+    blueretro.expect('# dev: 0 type: 5:13 HVC Controller \\(R\\)')
 
     # Init adapter with a few neutral state report
     for _ in range(2):
@@ -300,26 +320,34 @@ def test_sw_fc_right_controller_default_buttons_mapping_default_report(blueretro
             '0080008000800080'
         )
 
+    blueretro.flush_logs()
+
     # Validate buttons default mapping
     for sw_btns, br_btns in btns_generic_test_data(sw_d_nes_btns_mask):
-        rsp = blueretro.send_hid_report(
+        blueretro.send_hid_report(
             'a13f'
             f'{swap16(sw_btns):04x}'
             '0f'
             '0080008000800080'
         )
 
-        assert rsp['wireless_input']['btns'] == sw_btns
-        assert rsp['generic_input']['btns'][0] == br_btns
+        wireless = blueretro.expect_json('wireless_input')
+        br_generic = blueretro.expect_json('generic_input')
+
+        assert wireless['btns'] == sw_btns
+        assert br_generic['btns'][0] == br_btns
 
     # Validate hat default mapping
     for hat_value, br_btns in enumerate(hat_to_ld_btns):
-        rsp = blueretro.send_hid_report(
+        blueretro.send_hid_report(
             'a13f'
             '0000'
             f'0{hat_value:01x}'
             '0080008000800080'
         )
 
-        assert rsp['wireless_input']['hat'] == hat_value
-        assert rsp['generic_input']['btns'][0] == br_btns
+        wireless = blueretro.expect_json('wireless_input')
+        br_generic = blueretro.expect_json('generic_input')
+
+        assert wireless['hat'] == hat_value
+        assert br_generic['btns'][0] == br_btns
