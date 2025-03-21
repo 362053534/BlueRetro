@@ -35,7 +35,7 @@
 
 #define BT_TX 0
 #define BT_RX 1
-#define BT_FB_TASK_DELAY_CNT 30
+#define BT_FB_TASK_DELAY_CNT 1
 
 enum {
     /* BT CTRL flags */
@@ -281,7 +281,7 @@ static void bt_fb_task(void *param) {
             }
             delay_cnt = BT_FB_TASK_DELAY_CNT;
         }
-        vTaskDelay(200 / portTICK_PERIOD_MS);
+        vTaskDelay(8 / portTICK_PERIOD_MS);
     }
 }
 
