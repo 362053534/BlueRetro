@@ -211,8 +211,7 @@ static void bt_tx_task(void *param) {
             if (packet) {
                 if (packet[0] == 0xFF) {
                     /* Internal wait packet */
-                    //vTaskDelay(packet[1] / portTICK_PERIOD_MS);
-                    vTaskDelay(200 / portTICK_PERIOD_MS);
+                    vTaskDelay(packet[1] / portTICK_PERIOD_MS);
                 }
                 else {
 #ifdef CONFIG_BLUERETRO_BT_H4_TRACE
@@ -225,8 +224,7 @@ static void bt_tx_task(void *param) {
             }
         }
         else {
-            //vTaskDelay(10 / portTICK_PERIOD_MS);
-            vTaskDelay(4 / portTICK_PERIOD_MS);
+            vTaskDelay(10 / portTICK_PERIOD_MS);
         }
     }
 }
@@ -299,7 +297,7 @@ static void bt_fb_task(void *param) {
             }
             delay_cnt = BT_FB_TASK_DELAY_CNT;
         }
-        vTaskDelay(300 / portTICK_PERIOD_MS);
+        vTaskDelay(40 / portTICK_PERIOD_MS);
     }
 }
 
@@ -329,7 +327,7 @@ static void bt_host_task(void *param) {
         /* Update turbo mask for parallel system */
         wired_para_turbo_mask_hdlr();
 
-        vTaskDelay(20 / portTICK_PERIOD_MS);
+        vTaskDelay(5 / portTICK_PERIOD_MS);
     }
 }
 
