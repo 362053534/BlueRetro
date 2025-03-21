@@ -35,7 +35,7 @@
 
 #define BT_TX 0
 #define BT_RX 1
-#define BT_FB_TASK_DELAY_CNT 30
+#define BT_FB_TASK_DELAY_CNT 3000
 
 enum {
     /* BT CTRL flags */
@@ -195,7 +195,7 @@ static void bt_tx_task(void *param) {
                 if (packet[0] == 0xFF) {
                     /* Internal wait packet */
                     //vTaskDelay(packet[1] / portTICK_PERIOD_MS);
-					vTaskDelay(4 / portTICK_PERIOD_MS);
+		vTaskDelay(1 / portTICK_PERIOD_MS);
                 }
                 else {
                     bt_mon_tx((packet[0] == BT_HCI_H4_TYPE_CMD) ? BT_MON_CMD : BT_MON_ACL_TX,
@@ -208,7 +208,7 @@ static void bt_tx_task(void *param) {
         }
         else {
             //vTaskDelay(10 / portTICK_PERIOD_MS);
-			vTaskDelay(4 / portTICK_PERIOD_MS);
+			vTaskDelay(1 / portTICK_PERIOD_MS);
         }
     }
 }
@@ -283,7 +283,7 @@ static void bt_fb_task(void *param) {
             delay_cnt = BT_FB_TASK_DELAY_CNT;
         }
         //vTaskDelay(100 / portTICK_PERIOD_MS);
-		vTaskDelay(4 / portTICK_PERIOD_MS);
+	vTaskDelay(1 / portTICK_PERIOD_MS);
     }
 }
 
@@ -314,7 +314,7 @@ static void bt_host_task(void *param) {
         wired_para_turbo_mask_hdlr();
 
         //vTaskDelay(16 / portTICK_PERIOD_MS);
-		vTaskDelay(4 / portTICK_PERIOD_MS);
+		vTaskDelay(1 / portTICK_PERIOD_MS);
     }
 }
 
