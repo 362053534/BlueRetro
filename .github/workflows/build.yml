@@ -51,26 +51,4 @@ jobs:
           build/BlueRetro*.bin
         if-no-files-found: error
 
-  package:
-    needs: build
-    runs-on: ubuntu-latest
 
-    steps:
-      - name: Merge Artifacts HW1
-        uses: actions/upload-artifact/merge@v4
-        with:
-          name: ${{ needs.build.outputs.br_version }}_hw1
-          pattern: hw1*
-          delete-merged: true
-      - name: Merge Artifacts HW2
-        uses: actions/upload-artifact/merge@v4
-        with:
-          name: ${{ needs.build.outputs.br_version }}_hw2
-          pattern: hw2*
-          delete-merged: true
-      - name: Merge Artifacts DBG
-        uses: actions/upload-artifact/merge@v4
-        with:
-          name: ${{ needs.build.outputs.br_version }}_dbg
-          pattern: dbg*
-          delete-merged: true
