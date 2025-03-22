@@ -194,8 +194,7 @@ static void bt_tx_task(void *param) {
             if (packet) {
                 if (packet[0] == 0xFF) {
                     /* Internal wait packet */
-                    //vTaskDelay(packet[1] / portTICK_PERIOD_MS);
-                    vTaskDelay(4 / portTICK_PERIOD_MS);
+                    vTaskDelay(packet[1] / portTICK_PERIOD_MS);
                 }
                 else {
                     bt_mon_tx((packet[0] == BT_HCI_H4_TYPE_CMD) ? BT_MON_CMD : BT_MON_ACL_TX,
@@ -311,7 +310,7 @@ static void bt_host_task(void *param) {
         /* Update turbo mask for parallel system */
         wired_para_turbo_mask_hdlr();
 
-        vTaskDelay(10 / portTICK_PERIOD_MS);
+        vTaskDelay(8 / portTICK_PERIOD_MS);
     }
 }
 
