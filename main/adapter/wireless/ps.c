@@ -280,7 +280,8 @@ int32_t ps_to_generic(struct bt_data *bt_data, struct wireless_ctrl *ctrl_data) 
     return 0;
 }
 
-void ps_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_data) {
+bool ps_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_data) {
+    bool ret = true;
     switch (bt_data->base.pids->subtype) {
         case BT_PS5_DS:
             ps5_fb_from_generic(fb_data, bt_data);
@@ -289,4 +290,5 @@ void ps_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_data) {
             ps4_fb_from_generic(fb_data, bt_data);
             break;
     }
+    return ret;
 }

@@ -230,12 +230,12 @@ static void bt_tx_task(void *param) {
 }
 
 static void bt_fb_task(void *param) {
-    static bool rumble_en = false;
     uint32_t *fb_len;
     struct raw_fb *fb_data = NULL;
     uint32_t delay_cnt = BT_FB_TASK_DELAY_CNT; /* 100ms * 30 = 3sec */
 
     while(1) {
+        bool fb_changed = false;
         /* Look for rumble/led feedback data */
         while ((fb_data = (struct raw_fb *)queue_bss_dequeue(wired_adapter.input_q_hdl, &fb_len))) {
             struct bt_dev *device = NULL;
@@ -263,8 +263,7 @@ static void bt_fb_task(void *param) {
                     /* Fallthrough */
                 case FB_TYPE_RUMBLE:
                     if (bt_data) {
-                        rumble_en = true;
-                        adapter_bridge_fb(fb_data, bt_data);
+                        fb_changed = adapter_bridge_fb(fb_data, bt_data);
                         delay_cnt = 0;
                     }
                     break;
@@ -284,12 +283,12 @@ static void bt_fb_task(void *param) {
             queue_bss_return(wired_adapter.input_q_hdl, (uint8_t *)fb_data, fb_len);
         }
 
-        /* TX Feedback every ~frame, double as a keep alive */
-        if (delay_cnt-- == 0) {
+        /* TX Feedback every 10 ms if rumble on, every 3 sec otherwise */
+        if (delay_cnt-- == 0 || fb_changed) {
             for (uint32_t i = 0; i < BT_MAX_DEV; i++) {
                 struct bt_dev *device = &bt_dev[i];
 
-                if (rumble_en && atomic_test_bit(&device->flags, BT_DEV_HID_INIT_DONE)) {
+                if (atomic_test_bit(&device->flags, BT_DEV_HID_INIT_DONE)) {
                     struct bt_data *bt_data = &bt_adapter.data[device->ids.id];
 
                     bt_hid_feedback(device, bt_data->base.output);
@@ -297,7 +296,7 @@ static void bt_fb_task(void *param) {
             }
             delay_cnt = BT_FB_TASK_DELAY_CNT;
         }
-        vTaskDelay(100 / portTICK_PERIOD_MS);
+        vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }
 
@@ -327,7 +326,7 @@ static void bt_host_task(void *param) {
         /* Update turbo mask for parallel system */
         wired_para_turbo_mask_hdlr();
 
-        vTaskDelay(16 / portTICK_PERIOD_MS);
+        vTaskDelay(20 / portTICK_PERIOD_MS);
     }
 }
 
