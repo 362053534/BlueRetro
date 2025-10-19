@@ -236,7 +236,7 @@ static void ps4_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
             }
             break;
         case FB_TYPE_PLAYER_LED:
-            set_conf->leds = hw_config.ps_ctrl_colors[bt_data->base.pids->out_idx];
+            set_conf->leds = hw_config.ps_ctrl_colors[8];
             break;
     }
 }
@@ -256,7 +256,7 @@ static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
             }
             break;
         case FB_TYPE_PLAYER_LED:
-            set_conf->leds = hw_config.ps_ctrl_colors[bt_data->base.pids->out_idx];
+            set_conf->leds = hw_config.ps_ctrl_colors[8];
             break;
     }
 }

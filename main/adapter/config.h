@@ -89,7 +89,7 @@ struct hw_config {
             uint32_t reset_pin_polarity;
             uint32_t reset_pin_pulse_ms;
             uint32_t sw_io0_hold_thres_ms[3];
-            uint32_t ps_ctrl_colors[8];
+            uint32_t ps_ctrl_colors[9];
         };
         uint32_t data32[43];
     };

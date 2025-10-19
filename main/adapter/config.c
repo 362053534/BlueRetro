@@ -54,6 +54,7 @@ struct hw_config hw_config = {
         0x0080FF, /* Orange */
         0x00FFFF, /* Yellow */
         0xFF0080, /* Purple */
+        0x000000, /* Black */
     },
 };
 
