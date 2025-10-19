@@ -123,7 +123,7 @@ static void bt_hid_ps5_init_callback(void *arg) {
         set_conf->conf0 = 0x02;
         set_conf->cmd = 0x03;
         set_conf->conf1 = 0x04;
-        set_conf->leds = hw_config.ps_ctrl_colors[!device->ids.out_idx ? 8 : device->ids.out_idx]; // 正常情况不亮灯，不可操作时亮红灯
+        set_conf->leds = hw_config.ps_ctrl_colors[!bt_data->base.pids->out_idx ? 8 : bt_data->base.pids->out_idx]; // 正常情况不亮灯，不可操作时亮红灯
 
         struct bt_hidp_ps5_set_conf ps5_clear_led = {
             .conf0 = 0x02,
