@@ -1,7 +1,7 @@
 name: build
 on:
   push:
-    branches: [ master ]
+    branches: [ 2410test ]
   pull_request:
     branches: [ master ]
   workflow_dispatch:
