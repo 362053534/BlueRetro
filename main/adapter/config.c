@@ -102,6 +102,7 @@ static char *hw_config_name_idx[] = {
     "ps_ctrl_color_5",
     "ps_ctrl_color_6",
     "ps_ctrl_color_7",
+    "ps_ctrl_color_8",
 };
 static uint32_t config_src = DEFAULT_CFG;
 static uint32_t config_version_magic[] = {
