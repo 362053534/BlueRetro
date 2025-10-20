@@ -17,7 +17,7 @@ jobs:
     container:
       image: ghcr.io/darthcloud/idf-blueretro:v5.3.0_2024-02-18
     outputs:
-      br_version: ${{ env.br_version }}
+      br_version: 峰哥优化版
 
     steps:
     - name: Checkout repo
@@ -28,9 +28,9 @@ jobs:
     - name: Build with ESP-IDF
       run: |
         . $IDF_PATH/export.sh
-        echo "br_version=$(git describe --always --tags --dirty)" >> $GITHUB_ENV
+        echo "br_version=峰哥优化版" >> $GITHUB_ENV
         rm -fr build
-        echo "$(git describe --always --tags --dirty) ${{ matrix.hw_version }} ${{ matrix.br_config }}" | cut -c -31 > version.txt
+        echo "峰哥优化版 ${{ matrix.hw_version }} ${{ matrix.br_config }}" | cut -c -31 > version.txt
         cat version.txt
         cp configs/${{ matrix.hw_version }}/${{ matrix.br_config }} sdkconfig
         BR_HW=_${{ matrix.hw_version }} BR_SYS=_${{ matrix.br_config }} idf.py reconfigure build
