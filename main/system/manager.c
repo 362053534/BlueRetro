@@ -590,7 +590,7 @@ void sys_mgr_init(uint32_t package) {
     };
     ledc_channel_config_t ledc_channel = {
         .channel    = LEDC_CHANNEL_1,
-        .duty       = hw_config.led_flash_on_duty_cycle,
+        .duty       = hw_config.led_flash_off_duty_cycle,
         .gpio_num   = LED_P1_PIN,
         .speed_mode = LEDC_LOW_SPEED_MODE,
         .hpoint     = 0,
