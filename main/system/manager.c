@@ -375,12 +375,15 @@ static void boot_btn_hdl(void) {
         set_leds_as_btn_status(1);
 
         while (sys_mgr_get_boot_btn()) {
-            for (uint32_t i = 0; i < led_init_cnt; i++) {
-                // 用未使用的 LEDC channel，比如 channel 2，强制输出低
-                esp_rom_gpio_connect_out_signal(led_list[i], ledc_periph_signal[LEDC_LOW_SPEED_MODE].sig_out0_idx + LEDC_CHANNEL_2, 0, 0);
-                // 错误灯也关掉
-                esp_rom_gpio_connect_out_signal(err_led_pin, ledc_periph_signal[LEDC_LOW_SPEED_MODE].sig_out0_idx + LEDC_CHANNEL_2, 0, 0);
+            hold_cnt++;
+            if (hold_cnt > (hw_config.sw_io0_hold_thres_ms[state] / 10) && state < SYS_MGR_BTN_STATE3) {
+                ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, hw_config.led_flash_duty_cycle, 0);
+                ledc_set_freq(LEDC_LOW_SPEED_MODE, LEDC_TIMER_1, hw_config.led_flash_hz[state]);
+                state++;
             }
+            // 关闭所有LED灯
+            for (uint32_t i = 0; i < led_init_cnt; i++)
+                 gpio_set_level(hw_config.hw1_ports_led_pins[i], 0);
             vTaskDelay(10 / portTICK_PERIOD_MS);
         }
 
