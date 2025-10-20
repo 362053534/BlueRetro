@@ -381,9 +381,6 @@ static void boot_btn_hdl(void) {
                 ledc_set_freq(LEDC_LOW_SPEED_MODE, LEDC_TIMER_1, hw_config.led_flash_hz[state]);
                 state++;
             }
-            // 关闭所有LED灯
-            for (uint32_t i = 0; i < led_init_cnt; i++)
-                 gpio_set_level(hw_config.hw1_ports_led_pins[i], 0);
             vTaskDelay(10 / portTICK_PERIOD_MS);
         }
 
@@ -763,8 +760,4 @@ void sys_mgr_init(uint32_t package) {
 #endif /* CONFIG_BLUERETRO_HW2 */
 
     xTaskCreatePinnedToCore(sys_mgr_task, "sys_mgr_task", 2048, NULL, 5, NULL, 0);
-    // 关闭所有LED灯
-    for (uint32_t i = 0; i < led_init_cnt; i++) {
-        gpio_set_level(hw_config.hw1_ports_led_pins[i], 0);
-    }
 }
