@@ -36,7 +36,7 @@ static struct macro macros[] = {
     {.macro = SYS_POWER_OFF, .sys_mgr_cmd = SYS_MGR_CMD_PWR_OFF, .flag_mask = BT_WAITING_FOR_RELEASE_MACRO3},
     {.macro = FACTORY_RESET, .sys_mgr_cmd = SYS_MGR_CMD_FACTORY_RST, .flag_mask = BT_WAITING_FOR_RELEASE_MACRO4},
     {.macro = DEEP_SLEEP, .sys_mgr_cmd = SYS_MGR_CMD_DEEP_SLEEP, .flag_mask = BT_WAITING_FOR_RELEASE_MACRO5},
-    {.macro = WIRED_RST, .sys_mgr_cmd = SYS_MGR_CMD_WIRED_RST, .flag_mask = BT_WAITING_FOR_RELEASE_MACRO6, .cfg_func = update_cfg_mode},
+    // {.macro = WIRED_RST, .sys_mgr_cmd = SYS_MGR_CMD_WIRED_RST, .flag_mask = BT_WAITING_FOR_RELEASE_MACRO6, .cfg_func = update_cfg_mode},
 };
 
 static void update_cfg_mode(uint32_t index) {
