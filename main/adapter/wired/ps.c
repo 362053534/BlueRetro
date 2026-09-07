@@ -388,9 +388,12 @@ void ps_fb_to_generic(int32_t dev_mode, struct raw_fb *raw_fb_data, struct gener
 
     switch (fb_data->type) {
         case FB_TYPE_RUMBLE:
-            fb_data->state = (raw_fb_data->data[0] || raw_fb_data->data[1] ? 1 : 0);
+            /* 真 DS2 小电机只看最低位：奇数开、偶数关。
+             * 0x01/0xFF 都会开；RE4 常见偶数残值（0x40/0x80/0xFE）仍关掉。
+             * 不要改成任意非 0，那会撤掉 RE4 修复。 */
             fb_data->lf_pwr = raw_fb_data->data[1];
-            fb_data->hf_pwr = (raw_fb_data->data[0] == 0x01) ? 0xFF : 0x00;
+            fb_data->hf_pwr = (raw_fb_data->data[0] & 0x01) ? 0xFF : 0x00;
+            fb_data->state = (fb_data->hf_pwr || fb_data->lf_pwr) ? 1 : 0;
             break;
         case FB_TYPE_STATUS_LED:
             fb_data->led = raw_fb_data->data[0];
