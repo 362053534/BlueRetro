@@ -232,10 +232,12 @@ static void bt_tx_task(void *param) {
 static void bt_fb_task(void *param) {
     uint32_t *fb_len;
     struct raw_fb *fb_data = NULL;
-    uint32_t delay_cnt = BT_FB_TASK_DELAY_CNT; /* 100ms * 30 = 3sec */
+    uint32_t delay_cnt = BT_FB_TASK_DELAY_CNT; /* 10ms * 30 = 300ms，无震动时的慢刷新 */
+    static bool rumble_hold[BT_MAX_DEV] = {0};
 
     while(1) {
         bool fb_changed = false;
+        bool rumble_on = false;
         /* Look for rumble/led feedback data */
         while ((fb_data = (struct raw_fb *)queue_bss_dequeue(wired_adapter.input_q_hdl, &fb_len))) {
             struct bt_dev *device = NULL;
@@ -264,6 +266,14 @@ static void bt_fb_task(void *param) {
                 case FB_TYPE_RUMBLE:
                     if (bt_data) {
                         fb_changed = adapter_bridge_fb(fb_data, bt_data);
+                        /* LED 会落入此分支，仅震动包更新保持标志 */
+                        if (fb_data->header.type == FB_TYPE_RUMBLE && device && bt_data->base.pids) {
+                            struct generic_fb gfb = {0};
+
+                            wired_fb_to_generic(config.out_cfg[bt_data->base.pids->id].dev_mode,
+                                                fb_data, &gfb);
+                            rumble_hold[device->ids.id] = (gfb.state || gfb.lf_pwr || gfb.hf_pwr);
+                        }
                         delay_cnt = 0;
                     }
                     break;
@@ -283,8 +293,15 @@ static void bt_fb_task(void *param) {
             queue_bss_return(wired_adapter.input_q_hdl, (uint8_t *)fb_data, fb_len);
         }
 
-        /* TX Feedback every 10 ms if rumble on, every 3 sec otherwise */
-        if (delay_cnt-- == 0 || fb_changed) {
+        for (uint32_t i = 0; i < BT_MAX_DEV; i++) {
+            if (rumble_hold[i]) {
+                rumble_on = true;
+                break;
+            }
+        }
+
+        /* 有震动时每 10ms 重发 HID；全 0 时 300ms 慢刷新，避免空闲刷爆 */
+        if (rumble_on || fb_changed || delay_cnt-- == 0) {
             for (uint32_t i = 0; i < BT_MAX_DEV; i++) {
                 struct bt_dev *device = &bt_dev[i];
 
@@ -294,7 +311,7 @@ static void bt_fb_task(void *param) {
                     bt_hid_feedback(device, bt_data->base.output);
                 }
             }
-            delay_cnt = BT_FB_TASK_DELAY_CNT;
+            delay_cnt = rumble_on ? 0 : BT_FB_TASK_DELAY_CNT;
         }
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
