@@ -271,9 +271,9 @@ static void ps_cmd_req_hdlr(struct ps_ctrl_port *port, uint8_t id, uint8_t cmd, 
         case 0x42:
         {
             req++;
+            /* PS2 震动靠每帧 0x42 重复下发马达值来保持。
+             * 模拟模式每个 poll 都入队，让蓝牙 HID 持续续命，对齐 PADEMU。 */
             if (port->dev_id[id] != 0x41
-                    && (req[port->rumble_r_idx[id]] != port->rumble_r_val[id]
-                        || req[port->rumble_l_idx[id]] != port->rumble_l_val[id])
                     && (config.out_cfg[id + port->mt_first_port].acc_mode & ACC_RUMBLE)) {
                 struct raw_fb fb_data = {0};
                 if (port->rumble_r_state[id]) {
