@@ -50,3 +50,20 @@ bool wireless_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_dat
     return ret;
 }
 
+void wireless_batt_led_poll(struct bt_data *bt_data, uint32_t tick) {
+    if (!bt_data || !bt_data->base.pids) {
+        return;
+    }
+
+    switch (bt_data->base.pids->type) {
+        case BT_PS3:
+            ps3_batt_led_poll(bt_data, tick);
+            break;
+        case BT_PS:
+            ps_batt_led_poll(bt_data, tick);
+            break;
+        default:
+            break;
+    }
+}
+

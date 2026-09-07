@@ -9,5 +9,6 @@
 
 int32_t wireless_to_generic(struct bt_data *bt_data, struct wireless_ctrl *ctrl_data);
 bool wireless_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_data);
+void wireless_batt_led_poll(struct bt_data *bt_data, uint32_t tick);
 
 #endif /* _WIRELESS_H_ */

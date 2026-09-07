@@ -53,7 +53,11 @@ void bt_hid_ps3_init(struct bt_dev *device) {
     printf("# %s\n", __FUNCTION__);
 
     memcpy((void *)set_conf, ps3_config, sizeof(ps3_config));
-    set_conf->leds = (bt_hid_led_dev_id_map[device->ids.out_idx] << 1);
+    /* 连上后玩家灯默认熄灭，低电再由 batt_led 打开慢闪 */
+    set_conf->leds = 0x00;
+    bt_data->base.batt_valid = 0;
+    bt_data->base.batt_low = 0;
+    bt_data->base.batt_low_pending = 0;
 
     /* PS3 ctrl not yet ready to RX config, delay 20ms */
     const esp_timer_create_args_t ps3_timer_args = {

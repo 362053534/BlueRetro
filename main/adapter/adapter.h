@@ -516,6 +516,13 @@ struct bt_data_base {
     uint32_t sdp_len;
     int32_t axes_cal[ADAPTER_PS2_MAX_AXES];
     uint8_t output[128];
+    /* 手柄电量缓存：输入路径只偶发写入，灯逻辑在 fb 任务低频看 */
+    uint8_t batt_level;
+    uint8_t batt_charging;
+    uint8_t batt_valid;
+    uint8_t batt_low;
+    uint8_t batt_low_pending;
+    uint8_t batt_ds5_on;
 };
 
 struct bt_data {

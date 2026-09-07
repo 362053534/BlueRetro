@@ -29,10 +29,6 @@ enum {
     PS3_PS,
 };
 
-static const uint8_t led_dev_id_map[] = {
-    0x1, 0x2, 0x4, 0x8, 0x3, 0x6, 0xC
-};
-
 static const uint8_t ps3_axes_idx[ADAPTER_PS2_MAX_AXES] =
 {
 /*  AXIS_LX, AXIS_LY, AXIS_RX, AXIS_RY, TRIG_L, TRIG_R  */
@@ -83,6 +79,106 @@ static const uint32_t ps3_btns_mask[32] = {
     0, BIT(PS3_R1), 0, BIT(PS3_R3),
 };
 
+/* hidp_data[0]=0x00，Power 在完整报告偏移 30，对应 input[29] */
+#define PS3_BATT_OFF 29
+#define PS3_BATT_SAMPLE_MASK 0xFF
+#define PS3_BATT_CHARGING 0xEE
+#define PS3_BATT_DYING 0x01
+
+static void ps3_batt_sample(struct bt_data *bt_data) {
+    uint8_t power;
+
+    if ((bt_data->base.report_cnt & PS3_BATT_SAMPLE_MASK) ||
+            bt_data->base.input_len <= PS3_BATT_OFF) {
+        return;
+    }
+
+    power = bt_data->base.input[PS3_BATT_OFF];
+    bt_data->base.batt_level = power;
+    bt_data->base.batt_charging = (power == PS3_BATT_CHARGING);
+    bt_data->base.batt_valid = 1;
+}
+
+enum {
+    PS3_BATT_LED_OFF = 0,
+    PS3_BATT_LED_LOW,
+    PS3_BATT_LED_CHARGE,
+};
+
+static void ps3_set_led_blink_pattern(struct bt_hidp_ps3_set_conf *set_conf, uint8_t leds) {
+    uint32_t i;
+
+    set_conf->leds = leds;
+    for (i = 0; i < 4; i++) {
+        uint8_t *pat = &set_conf->tbd2[i * 5];
+        uint8_t bit = 0x10 >> i;
+
+        if (leds & bit) {
+            pat[0] = 0xFF;
+            pat[1] = 0x27;
+            pat[2] = 0x10;
+            pat[3] = 0x32;
+            pat[4] = 0x32;
+        }
+    }
+}
+
+static void ps3_set_batt_led(struct bt_data *bt_data, uint8_t mode) {
+    struct bt_hidp_ps3_set_conf *set_conf =
+        (struct bt_hidp_ps3_set_conf *)bt_data->base.output;
+    uint32_t idx = bt_data->base.pids->out_idx;
+
+    if (idx >= 7) {
+        idx = 0;
+    }
+
+    if (mode == PS3_BATT_LED_CHARGE) {
+        /* 充电：当前玩家灯慢闪，不做低电四灯闪 */
+        ps3_set_led_blink_pattern(set_conf, bt_hid_led_dev_id_map[idx] << 1);
+    }
+    else if (mode == PS3_BATT_LED_LOW) {
+        ps3_set_led_blink_pattern(set_conf, 0x1E);
+    }
+    else {
+        set_conf->leds = 0x00;
+    }
+}
+
+void ps3_batt_led_poll(struct bt_data *bt_data, uint32_t tick) {
+    uint8_t want_low;
+
+    if (!bt_data->base.batt_valid || (tick % 500) != 0) {
+        return;
+    }
+
+    if (bt_data->base.batt_charging) {
+        bt_data->base.batt_low = 0;
+        bt_data->base.batt_low_pending = 0;
+        ps3_set_batt_led(bt_data, PS3_BATT_LED_CHARGE);
+        return;
+    }
+
+    want_low = bt_data->base.batt_level == PS3_BATT_DYING;
+
+    if (want_low) {
+        if (bt_data->base.batt_low_pending) {
+            bt_data->base.batt_low = 1;
+        }
+        else {
+            bt_data->base.batt_low_pending = 1;
+        }
+    }
+    else {
+        bt_data->base.batt_low_pending = 0;
+        bt_data->base.batt_low = 0;
+        ps3_set_batt_led(bt_data, PS3_BATT_LED_OFF);
+    }
+
+    if (bt_data->base.batt_low) {
+        ps3_set_batt_led(bt_data, PS3_BATT_LED_LOW);
+    }
+}
+
 int32_t ps3_to_generic(struct bt_data *bt_data, struct wireless_ctrl *ctrl_data) {
     uint32_t i = 8;
     uint32_t axes_cnt = ADAPTER_MAX_AXES;
@@ -127,6 +223,8 @@ int32_t ps3_to_generic(struct bt_data *bt_data, struct wireless_ctrl *ctrl_data)
         ctrl_data->axes[i].value = map->axes[ps3_axes_idx[i]] - ps3_axes_meta[i].neutral + bt_data->base.axes_cal[i];
     }
 
+    ps3_batt_sample(bt_data);
+
     return 0;
 }
 
@@ -151,7 +249,10 @@ bool ps3_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_data) {
             }
             break;
         case FB_TYPE_PLAYER_LED:
-            set_conf->leds = (led_dev_id_map[bt_data->base.pids->out_idx] << 1);
+            /* 充电玩家灯闪 / 低电四灯闪优先；正常保持熄灭 */
+            if (!bt_data->base.batt_low && !bt_data->base.batt_charging) {
+                ps3_set_batt_led(bt_data, PS3_BATT_LED_OFF);
+            }
             break;
     }
     return ret;

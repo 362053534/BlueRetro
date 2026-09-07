@@ -30,6 +30,7 @@
 #include "adapter/memory_card.h"
 #include "adapter/wired/wired.h"
 #include "adapter/hid_parser.h"
+#include "adapter/wireless/wireless.h"
 #include "bluetooth/hidp/ps.h"
 
 #define BT_TX 0
@@ -330,6 +331,22 @@ static void bt_fb_task(void *param) {
             if (rumble_hold[i]) {
                 rumble_on = true;
                 break;
+            }
+        }
+
+        /* 低电灯：5s 判定一次，DS5 1s 翻转灯条；只改 output，不另发 HID */
+        {
+            static uint32_t batt_tick = 0;
+
+            batt_tick++;
+            if ((batt_tick % 100) == 0) {
+                for (uint32_t i = 0; i < BT_MAX_DEV; i++) {
+                    struct bt_dev *device = &bt_dev[i];
+
+                    if (atomic_test_bit(&device->flags, BT_DEV_HID_INIT_DONE)) {
+                        wireless_batt_led_poll(&bt_adapter.data[device->ids.id], batt_tick);
+                    }
+                }
             }
         }
 

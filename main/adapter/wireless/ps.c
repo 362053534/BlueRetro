@@ -101,6 +101,145 @@ static const uint32_t ps4_btns_mask[32] = {
     0, BIT(PS4_R1), 0, BIT(PS4_R3),
 };
 
+/* BT 0x11：common.status[0] 在 hidp_data[31] */
+#define PS4_BT_BATT_OFF 31
+/* BT 0x31：common.status[0] 在 hidp_data[53] */
+#define PS5_BT_BATT_OFF 53
+#define PS_BATT_SAMPLE_MASK 0xFF
+#define PS4_BATT_CABLE BIT(4)
+#define PS5_BATT_CHARGE_SHIFT 4
+
+static void ps_batt_sample(struct bt_data *bt_data, uint32_t off) {
+    uint8_t status, level, charging;
+
+    if ((bt_data->base.report_cnt & PS_BATT_SAMPLE_MASK) ||
+            bt_data->base.input_len <= off) {
+        return;
+    }
+
+    status = bt_data->base.input[off];
+    level = status & 0x0F;
+    if (bt_data->base.report_id == 0x31) {
+        charging = (status >> PS5_BATT_CHARGE_SHIFT) != 0;
+    }
+    else {
+        charging = (status & PS4_BATT_CABLE) || (level >= 0x0B);
+    }
+
+    bt_data->base.batt_level = level;
+    bt_data->base.batt_charging = charging;
+    bt_data->base.batt_valid = 1;
+}
+
+enum {
+    PS_BATT_LED_OFF = 0,
+    PS_BATT_LED_LOW,
+    PS_BATT_LED_CHARGE,
+};
+
+static void ps4_set_batt_led(struct bt_hidp_ps4_set_conf *set_conf, uint8_t mode) {
+    if (mode == PS_BATT_LED_CHARGE) {
+        /* 充电：绿灯常亮，不开硬件闪 */
+        set_conf->conf1 = 0x03;
+        set_conf->rgb[0] = 0x00;
+        set_conf->rgb[1] = 0xFF;
+        set_conf->rgb[2] = 0x00;
+        set_conf->led_on_delay = 0;
+        set_conf->led_off_delay = 0;
+    }
+    else if (mode == PS_BATT_LED_LOW) {
+        /* 低电：红灯硬件慢闪 */
+        set_conf->conf1 = 0x07;
+        set_conf->rgb[0] = 0xFF;
+        set_conf->rgb[1] = 0x00;
+        set_conf->rgb[2] = 0x00;
+        set_conf->led_on_delay = 0x80;
+        set_conf->led_off_delay = 0x80;
+    }
+    else {
+        set_conf->conf1 = 0x03;
+        set_conf->leds = 0;
+        set_conf->led_off_delay = 0;
+    }
+}
+
+static void ps5_set_batt_led(struct bt_hidp_ps5_set_conf *set_conf, uint8_t mode) {
+    if (mode == PS_BATT_LED_CHARGE) {
+        set_conf->leds = 0x0000FF00; /* G */
+    }
+    else if (mode == PS_BATT_LED_LOW) {
+        set_conf->leds = 0x000000FF; /* R */
+    }
+    else {
+        set_conf->leds = 0;
+    }
+}
+
+static void ps_apply_batt_led(struct bt_data *bt_data, uint8_t mode) {
+    if (bt_data->base.pids->subtype == BT_PS5_DS) {
+        ps5_set_batt_led((struct bt_hidp_ps5_set_conf *)bt_data->base.output, mode);
+    }
+    else {
+        ps4_set_batt_led((struct bt_hidp_ps4_set_conf *)bt_data->base.output, mode);
+    }
+}
+
+static uint8_t ps_batt_is_low(struct bt_data *bt_data) {
+    return bt_data->base.batt_valid &&
+        !bt_data->base.batt_charging &&
+        bt_data->base.batt_level == 0;
+}
+
+void ps_batt_led_poll(struct bt_data *bt_data, uint32_t tick) {
+    uint8_t want_low;
+
+    if (!bt_data->base.batt_valid) {
+        return;
+    }
+
+    /* 充电时不做低电红闪，灯条绿灯常亮 */
+    if (bt_data->base.batt_charging) {
+        if ((tick % 500) == 0) {
+            bt_data->base.batt_low = 0;
+            bt_data->base.batt_low_pending = 0;
+            bt_data->base.batt_ds5_on = 0;
+            ps_apply_batt_led(bt_data, PS_BATT_LED_CHARGE);
+        }
+        return;
+    }
+
+    want_low = ps_batt_is_low(bt_data);
+
+    if ((tick % 500) == 0) {
+        if (want_low) {
+            if (bt_data->base.batt_low_pending) {
+                bt_data->base.batt_low = 1;
+            }
+            else {
+                bt_data->base.batt_low_pending = 1;
+            }
+        }
+        else {
+            bt_data->base.batt_low_pending = 0;
+            bt_data->base.batt_low = 0;
+            bt_data->base.batt_ds5_on = 0;
+            ps_apply_batt_led(bt_data, PS_BATT_LED_OFF);
+        }
+
+        if (bt_data->base.batt_low) {
+            bt_data->base.batt_ds5_on = 1;
+            ps_apply_batt_led(bt_data, PS_BATT_LED_LOW);
+        }
+    }
+    else if ((tick % 100) == 0 &&
+            bt_data->base.batt_low &&
+            bt_data->base.pids->subtype == BT_PS5_DS) {
+        bt_data->base.batt_ds5_on ^= 1;
+        ps5_set_batt_led((struct bt_hidp_ps5_set_conf *)bt_data->base.output,
+            bt_data->base.batt_ds5_on ? PS_BATT_LED_LOW : PS_BATT_LED_OFF);
+    }
+}
+
 static void ps4_to_generic(struct bt_data *bt_data, struct wireless_ctrl *ctrl_data) {
     struct ps4_map *map = (struct ps4_map *)bt_data->base.input;
     struct ctrl_meta *meta = bt_data->raw_src_mappings[PAD].meta;
@@ -139,6 +278,8 @@ static void ps4_to_generic(struct bt_data *bt_data, struct wireless_ctrl *ctrl_d
         ctrl_data->axes[i].meta = &meta[i];
         ctrl_data->axes[i].value = map->axes[ps4_axes_idx[i]] - ps4_axes_meta[i].neutral + bt_data->base.axes_cal[i];
     }
+
+    ps_batt_sample(bt_data, PS4_BT_BATT_OFF);
 }
 
 static void ps5_to_generic(struct bt_data *bt_data, struct wireless_ctrl *ctrl_data) {
@@ -179,6 +320,8 @@ static void ps5_to_generic(struct bt_data *bt_data, struct wireless_ctrl *ctrl_d
         ctrl_data->axes[i].meta = &meta[i];
         ctrl_data->axes[i].value = map->axes[ps5_axes_idx[i]] - ps4_axes_meta[i].neutral + bt_data->base.axes_cal[i];
     }
+
+    ps_batt_sample(bt_data, PS5_BT_BATT_OFF);
 }
 
 static void hid_to_generic(struct bt_data *bt_data, struct wireless_ctrl *ctrl_data) {
@@ -236,7 +379,10 @@ static void ps4_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
             }
             break;
         case FB_TYPE_PLAYER_LED:
-            set_conf->leds = hw_config.ps_ctrl_colors[bt_data->base.pids->out_idx];
+            /* 充电绿灯 / 低电红闪优先；正常保持灯条熄灭 */
+            if (!bt_data->base.batt_low && !bt_data->base.batt_charging) {
+                ps4_set_batt_led(set_conf, PS_BATT_LED_OFF);
+            }
             break;
     }
 }
@@ -256,7 +402,9 @@ static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
             }
             break;
         case FB_TYPE_PLAYER_LED:
-            set_conf->leds = hw_config.ps_ctrl_colors[bt_data->base.pids->out_idx];
+            if (!bt_data->base.batt_low && !bt_data->base.batt_charging) {
+                ps5_set_batt_led(set_conf, PS_BATT_LED_OFF);
+            }
             break;
     }
 }

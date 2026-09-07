@@ -123,7 +123,7 @@ static void bt_hid_ps5_init_callback(void *arg) {
         set_conf->conf0 = 0x02;
         set_conf->cmd = 0x03;
         set_conf->conf1 = 0x04;
-        set_conf->leds = hw_config.ps_ctrl_colors[!bt_data->base.pids->out_idx ? 8 : bt_data->base.pids->out_idx]; // 正常情况不亮灯，不可操作时亮红灯
+        set_conf->leds = 0; /* 默认熄灭灯条 */
 
         struct bt_hidp_ps5_set_conf ps5_clear_led = {
             .conf0 = 0x02,
@@ -133,7 +133,7 @@ static void bt_hid_ps5_init_callback(void *arg) {
             .conf0 = 0x02,
             .conf1 = 0x04,
         };
-        ps5_set_led.leds = hw_config.ps_ctrl_colors[device->ids.out_idx];
+        ps5_set_led.leds = 0;
         printf("# %s\n", __FUNCTION__);
 
         bt_hid_cmd_ps5_set_conf(device, (void *)&ps5_clear_led);
@@ -186,7 +186,12 @@ void bt_hid_ps_init(struct bt_dev *device) {
     /* Init output data for Rumble/LED feedback */
     set_conf->conf0 = 0xc4;
     set_conf->conf1 = 0x03;
-    set_conf->leds = hw_config.ps_ctrl_colors[!bt_data->base.pids->out_idx ? 8 : bt_data->base.pids->out_idx]; // 正常情况不亮灯，不可操作时亮红灯
+    /* 连上后灯条默认熄灭，最低电量再红闪 */
+    set_conf->leds = 0;
+    bt_data->base.batt_valid = 0;
+    bt_data->base.batt_low = 0;
+    bt_data->base.batt_low_pending = 0;
+    bt_data->base.batt_ds5_on = 0;
 
     switch (device->ids.subtype) {
         case BT_PS5_DS:
@@ -201,9 +206,9 @@ void bt_hid_ps_init(struct bt_dev *device) {
             };
             struct bt_hidp_ps4_set_conf ps4_set_conf = {
                 .conf0 = 0xc0,
-                .conf1 = 0x07,
+                .conf1 = 0x03,
             };
-            ps4_set_conf.leds = hw_config.ps_ctrl_colors[device->ids.out_idx];
+            ps4_set_conf.leds = 0; /* 默认熄灭灯条 */
 
             printf("# %s\n", __FUNCTION__);
 
