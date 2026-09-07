@@ -79,14 +79,14 @@ void bt_hid_ps3_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, u
                     struct bt_hidp_ps3_set_conf rumble;
                     memcpy(&rumble, ps3_config, sizeof(rumble));
                     if (bt_hci_acl_pkt->hidp_data[17] || bt_hci_acl_pkt->hidp_data[18]) {
-                        rumble.r_rumble_pow = 0x01;
+                        rumble.hf_motor_pwr = 0x01;
                     }
                     if (bt_hci_acl_pkt->hidp_data[17]) {
-                        rumble.l_rumble_pow = bt_hci_acl_pkt->hidp_data[17];
-                        rumble.l_rumble_len = 0xFF;
+                        rumble.lf_motor_pwr = bt_hci_acl_pkt->hidp_data[17];
+                        rumble.lf_motor_len = 0xFE;
                     }
                     if (bt_hci_acl_pkt->hidp_data[18]) {
-                        rumble.r_rumble_len = 0xFF;
+                        rumble.hf_motor_len = 0xFE;
                     }
                     bt_hid_cmd_ps3_set_conf(device, &rumble);
 #else

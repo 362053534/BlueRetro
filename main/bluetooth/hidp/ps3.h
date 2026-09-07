@@ -21,9 +21,9 @@ struct bt_hidp_ps3_status {
 #define BT_HIDP_PS3_SET_CONF 0x01
 struct bt_hidp_ps3_set_conf {
     uint8_t tbd0;
-    uint8_t hf_motor_len;
-    uint8_t hf_lf_motors_enable;
-    uint8_t lf_motor_len;
+    uint8_t hf_motor_len; /* 右电机 duration，PADEMU 用 0xFE */
+    uint8_t hf_motor_pwr; /* 右电机力度（小电机），不是 enable */
+    uint8_t lf_motor_len; /* 左电机 duration，PADEMU 用 0xFE */
     uint8_t lf_motor_pwr;
     uint8_t tbd1[4];
     uint8_t leds;

@@ -137,20 +137,17 @@ bool ps3_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_data) {
     switch (fb_data->type) {
         case FB_TYPE_RUMBLE:
             if (fb_data->state) {
-                set_conf->hf_lf_motors_enable = 0x01;
-
+                /* 对齐 PADEMU：左右 duration 用 0xFE；offset 2 写右电机力度 */
+                set_conf->hf_motor_len = 0xFE;
+                set_conf->hf_motor_pwr = fb_data->hf_pwr ? 0x01 : 0x00;
+                set_conf->lf_motor_len = 0xFE;
                 set_conf->lf_motor_pwr = fb_data->lf_pwr;
-                set_conf->lf_motor_len = (fb_data->lf_pwr) ? 0xFF : 0x00;
-
-                set_conf->hf_motor_len = (fb_data->hf_pwr > 128) ? 0xFF : 0x00;
             }
             else {
-                set_conf->hf_lf_motors_enable = 0x00;
-
-                set_conf->lf_motor_pwr = 0x00;
-                set_conf->lf_motor_len = 0x00;
-
                 set_conf->hf_motor_len = 0x00;
+                set_conf->hf_motor_pwr = 0x00;
+                set_conf->lf_motor_len = 0x00;
+                set_conf->lf_motor_pwr = 0x00;
             }
             break;
         case FB_TYPE_PLAYER_LED:
