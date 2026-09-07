@@ -293,6 +293,39 @@ static void bt_fb_task(void *param) {
             queue_bss_return(wired_adapter.input_q_hdl, (uint8_t *)fb_data, fb_len);
         }
 
+        /* 每口取最新震动邮箱。非 0 持续刷新；刚停振立刻发 stop；空闲 0 不刷 delay */
+        for (uint32_t wired_id = 0; wired_id < WIRED_MAX_DEV; wired_id++) {
+            struct raw_fb rumble_fb;
+            struct bt_dev *device = NULL;
+            struct bt_data *bt_data = NULL;
+
+            if (!adapter_fb_rumble_take(wired_id, &rumble_fb)) {
+                continue;
+            }
+
+            bt_host_get_active_dev_from_out_idx(rumble_fb.header.wired_id, &device);
+            if (device) {
+                bt_data = &bt_adapter.data[device->ids.id];
+            }
+            if (bt_data) {
+                adapter_bridge_fb(&rumble_fb, bt_data);
+                if (device && bt_data->base.pids) {
+                    struct generic_fb gfb = {0};
+                    bool hold;
+
+                    wired_fb_to_generic(config.out_cfg[bt_data->base.pids->id].dev_mode,
+                                        &rumble_fb, &gfb);
+                    hold = (gfb.state || gfb.lf_pwr || gfb.hf_pwr);
+                    /* 开启中每拍都发；从开到关必须立刻发 stop，不能等 300ms */
+                    if (hold || rumble_hold[device->ids.id]) {
+                        fb_changed = true;
+                        delay_cnt = 0;
+                    }
+                    rumble_hold[device->ids.id] = hold;
+                }
+            }
+        }
+
         for (uint32_t i = 0; i < BT_MAX_DEV; i++) {
             if (rumble_hold[i]) {
                 rumble_on = true;

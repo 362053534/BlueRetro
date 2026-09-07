@@ -583,6 +583,8 @@ void adapter_fb_stop_timer_start(uint8_t dev_id, uint64_t dur_us);
 void adapter_fb_stop_timer_stop(uint8_t dev_id);
 bool adapter_bridge_fb(struct raw_fb *fb_data, struct bt_data *bt_data);
 void adapter_q_fb(struct raw_fb *fb_data);
+/* 取出某口最新震动；无新数据返回 0 */
+int32_t adapter_fb_rumble_take(uint8_t wired_id, struct raw_fb *fb_data);
 void adapter_init(void);
 void adapter_meta_init(void);
 

@@ -44,6 +44,10 @@ struct generic_fb fb_input;
 struct bt_adapter bt_adapter = {0};
 struct wired_adapter wired_adapter = {0};
 static uint32_t adapter_out_mask[WIRED_MAX_DEV] = {0};
+/* 每口只保留最新震动，ISR 覆盖邮箱，避免 16 槽队列丢 stop */
+static struct raw_fb rumble_mailbox[WIRED_MAX_DEV];
+static atomic_t rumble_mailbox_seq[WIRED_MAX_DEV];
+static atomic_t rumble_mailbox_pend[WIRED_MAX_DEV];
 
 static uint32_t btn_id_to_btn_idx(uint8_t btn_id) {
     if (btn_id < 32) {
@@ -489,8 +493,45 @@ bool adapter_bridge_fb(struct raw_fb *fb_data, struct bt_data *bt_data) {
 }
 
 void IRAM_ATTR adapter_q_fb(struct raw_fb *fb_data) {
-    /* Best efford only on fb */
+    uint8_t id = fb_data->header.wired_id;
+
+    /* 震动走每口邮箱：新包覆盖旧包，stop 不会因队列满被丢掉 */
+    if (fb_data->header.type == FB_TYPE_RUMBLE && id < WIRED_MAX_DEV) {
+        /* seq 奇数表示 ISR 正在写，偶数表示数据稳定 */
+        atomic_inc(&rumble_mailbox_seq[id]);
+        memcpy(&rumble_mailbox[id], fb_data, sizeof(*fb_data));
+        atomic_inc(&rumble_mailbox_seq[id]);
+        atomic_set(&rumble_mailbox_pend[id], 1);
+        return;
+    }
+
+    /* LED/game id 等仍走 best-effort 队列 */
     queue_bss_enqueue(wired_adapter.input_q_hdl, (uint8_t *)fb_data, sizeof(*fb_data));
+}
+
+int32_t adapter_fb_rumble_take(uint8_t wired_id, struct raw_fb *fb_data) {
+    atomic_val_t seq1;
+    atomic_val_t seq2 = 0;
+
+    if (wired_id >= WIRED_MAX_DEV || fb_data == NULL) {
+        return 0;
+    }
+    if (!atomic_get(&rumble_mailbox_pend[wired_id])) {
+        return 0;
+    }
+
+    /* seqlock：写中途或又有新包时重读，保证拿到完整的最新值 */
+    do {
+        atomic_set(&rumble_mailbox_pend[wired_id], 0);
+        seq1 = atomic_get(&rumble_mailbox_seq[wired_id]);
+        if (seq1 & 1) {
+            continue;
+        }
+        memcpy(fb_data, &rumble_mailbox[wired_id], sizeof(*fb_data));
+        seq2 = atomic_get(&rumble_mailbox_seq[wired_id]);
+    } while ((seq1 & 1) || seq1 != seq2 || atomic_get(&rumble_mailbox_pend[wired_id]));
+
+    return 1;
 }
 
 void adapter_init(void) {
