@@ -70,7 +70,6 @@ static uint8_t sense_list[] = {
 static uint8_t led_list[] = {
     LED_P1_PIN, LED_P2_PIN, LED_P3_PIN, LED_P4_PIN
 };
-static uint8_t current_pulse_led = LED_P1_PIN;
 static uint8_t err_led_pin;
 static uint8_t power_off_pin = POWER_OFF_PIN;
 static uint8_t led_init_cnt = 1;
@@ -158,10 +157,6 @@ static inline void set_port_led(uint32_t index, uint32_t state) {
     }
 }
 
-static inline uint32_t get_port_led_pin(uint32_t index) {
-    return led_list[index];
-}
-
 static void internal_flag_init(void) {
 #ifdef CONFIG_BLUERETRO_HW2
     if (hw_config.power_pin_polarity) {
@@ -185,18 +180,12 @@ static void internal_flag_init(void) {
     }
 }
 
-static void port_led_pulse(uint32_t pin) {
-    if (pin) {
-        gpio_hal_iomux_func_sel(GPIO_PIN_MUX_REG[pin], PIN_FUNC_GPIO);
-        gpio_set_direction(pin, GPIO_MODE_OUTPUT);
-        esp_rom_gpio_connect_out_signal(pin, ledc_periph_signal[LEDC_HIGH_SPEED_MODE].sig_out0_idx + LEDC_CHANNEL_0, 0, 0);
-    }
-}
-
 static void set_leds_as_btn_status(uint8_t state) {
-    ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, hw_config.led_flash_on_duty_cycle, 0);
+    /* 长按复位才把灯接到闪烁通道；松开后端口灯立刻熄灭 */
+    if (state) {
+        ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, hw_config.led_flash_duty_cycle, 0);
+    }
 
-    /* Use all port LEDs */
     for (uint32_t i = 0; i < hw_config.port_cnt; i++) {
         uint8_t pin = led_list[i];
 
@@ -205,9 +194,11 @@ static void set_leds_as_btn_status(uint8_t state) {
         if (state) {
             esp_rom_gpio_connect_out_signal(pin, ledc_periph_signal[LEDC_LOW_SPEED_MODE].sig_out0_idx + LEDC_CHANNEL_1, 0, 0);
         }
+        else {
+            esp_rom_gpio_connect_out_signal(pin, ledc_periph_signal[LEDC_LOW_SPEED_MODE].sig_out0_idx + LEDC_CHANNEL_2, 0, 0);
+        }
     }
 
-    /* Use error LED as well */
     if (state) {
         esp_rom_gpio_connect_out_signal(err_led_pin, ledc_periph_signal[LEDC_LOW_SPEED_MODE].sig_out0_idx + LEDC_CHANNEL_1, 0, 0);
     }
@@ -268,7 +259,6 @@ static void power_on_hdl(void) {
 static void wired_port_hdl(void) {
     uint32_t update = 0;
     uint16_t port_mask = 0;
-    uint8_t err_led_set = 0;
 
     for (int32_t i = 0, j = 0, idx = 0; i < BT_MAX_DEV; i++) {
         struct bt_dev *device = NULL;
@@ -298,25 +288,8 @@ static void wired_port_hdl(void) {
 
 
         if (device->ids.out_idx < hw_config.port_cnt) {
-            if (bt_ready) {
-                set_port_led(device->ids.out_idx, 1);
-            }
-            else if (get_port_led_pin(device->ids.out_idx) != current_pulse_led) {
-                set_port_led(device->ids.out_idx, 0);
-            }
-        }
-
-        if (!bt_ready && !err_led_set) {
-            uint8_t new_led = (device->ids.out_idx < hw_config.port_cnt) ? get_port_led_pin(device->ids.out_idx) : 0;
-
-            if (bt_hci_get_inquiry()) {
-                port_led_pulse(new_led);
-                err_led_set = 1;
-                current_pulse_led = new_led;
-            }
-            else {
-                current_pulse_led = 0;
-            }
+            /* 手柄连上后端口灯保持熄灭，不再常亮或跟着呼吸 */
+            set_port_led(device->ids.out_idx, 0);
         }
 
 #ifdef CONFIG_BLUERETRO_HW2
@@ -372,8 +345,7 @@ static void boot_btn_hdl(void) {
 
     if (sys_mgr_get_boot_btn()) {
         int64_t hold_start_us = esp_timer_get_time();
-
-        set_leds_as_btn_status(1);
+        uint32_t leds_flashing = 0;
 
         /* 用 esp_timer 计时，不再假设每次 vTaskDelay(10) 刚好 10ms */
         while (sys_mgr_get_boot_btn()) {
@@ -381,6 +353,11 @@ static void boot_btn_hdl(void) {
 
             if (state < SYS_MGR_BTN_STATE3 &&
                     elapsed_ms >= hw_config.sw_io0_hold_thres_ms[state]) {
+                /* 未到 1s 保持全灭；到达档位后才开始慢闪/快闪 */
+                if (!leds_flashing) {
+                    set_leds_as_btn_status(1);
+                    leds_flashing = 1;
+                }
                 ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, hw_config.led_flash_duty_cycle, 0);
                 ledc_set_freq(LEDC_LOW_SPEED_MODE, LEDC_TIMER_1, hw_config.led_flash_hz[state]);
                 state++;
