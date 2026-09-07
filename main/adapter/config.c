@@ -44,7 +44,7 @@ struct hw_config hw_config = {
     .reset_pin_od = 1,
     .reset_pin_polarity = 0,
     .reset_pin_pulse_ms = 500,
-    .sw_io0_hold_thres_ms = {1000, 3000, 6000},
+    .sw_io0_hold_thres_ms = {1000, 3000, 10000}, /* 1s 断开 / 3s 搜索 / 10s 重置配置 */
     .ps_ctrl_colors = {
         0xFF0000, /* Blue */
         0x0000FF, /* Red */

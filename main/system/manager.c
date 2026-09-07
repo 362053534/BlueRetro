@@ -8,9 +8,9 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <freertos/ringbuf.h>
-#include <esp_partition.h>
 #include <esp_sleep.h>
 #include <esp_system.h>
+#include <esp_timer.h>
 #include <soc/efuse_reg.h>
 #include "driver/gpio.h"
 #include "hal/ledc_hal.h"
@@ -357,7 +357,6 @@ static void wired_port_hdl(void) {
 static void boot_btn_hdl(void) {
     static uint32_t check_qdp = 0;
     static uint32_t inhibit_cnt = 0;
-    uint32_t hold_cnt = 0;
     uint32_t state = 0;
 
     /* Let inhibit_cnt reach 0 before handling button again */
@@ -372,11 +371,16 @@ static void boot_btn_hdl(void) {
     check_qdp = 0;
 
     if (sys_mgr_get_boot_btn()) {
+        int64_t hold_start_us = esp_timer_get_time();
+
         set_leds_as_btn_status(1);
 
+        /* 用 esp_timer 计时，不再假设每次 vTaskDelay(10) 刚好 10ms */
         while (sys_mgr_get_boot_btn()) {
-            hold_cnt++;
-            if (hold_cnt > (hw_config.sw_io0_hold_thres_ms[state] / 10) && state < SYS_MGR_BTN_STATE3) {
+            uint32_t elapsed_ms = (uint32_t)((esp_timer_get_time() - hold_start_us) / 1000);
+
+            if (state < SYS_MGR_BTN_STATE3 &&
+                    elapsed_ms >= hw_config.sw_io0_hold_thres_ms[state]) {
                 ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, hw_config.led_flash_duty_cycle, 0);
                 ledc_set_freq(LEDC_LOW_SPEED_MODE, LEDC_TIMER_1, hw_config.led_flash_hz[state]);
                 state++;
@@ -388,7 +392,10 @@ static void boot_btn_hdl(void) {
         if (hw_config.external_adapter)
 #endif
         {
-            state++;
+            /* 外置/通用机：短按不要主机复位，只改成断开蓝牙；后面 3s/10s 档位不再整体 +1 */
+            if (state == SYS_MGR_BTN_STATE0) {
+                state = SYS_MGR_BTN_STATE1;
+            }
         }
 
         if (sys_mgr_get_power()) {
@@ -519,14 +526,9 @@ static int32_t sys_mgr_get_boot_btn(void) {
 }
 
 static void sys_mgr_factory_reset(void) {
-    const esp_partition_t* partition = esp_partition_find_first(
-            ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_OTA, "otadata");
-    if (partition) {
-        esp_partition_erase_range(partition, 0, partition->size);
-    }
-
+    /* 只清配置文件，恢复默认映射；不再擦 otadata，避免长按过头把固件回滚 */
     fs_reset();
-    printf("BlueRetro factory reset\n");
+    printf("BlueRetro config reset\n");
     bt_host_disconnect_all();
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     esp_restart();
