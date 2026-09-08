@@ -11,8 +11,8 @@
 #include "adapter/config.h"
 #include "ps.h"
 
-/* DS5 对 PS2 二值小电机先使用约 25% 的测试力度。 */
-#define PS5_BINARY_HF_MOTOR_PWR 0x40
+/* DS5 对 PS2 二值小电机先使用最小测试力度。 */
+#define PS5_BINARY_HF_MOTOR_PWR 0x01
 
 enum {
     PS4_S = 4,
@@ -400,7 +400,7 @@ static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
     switch (fb_data->type) {
         case FB_TYPE_RUMBLE:
             if (fb_data->state) {
-                /* 通用层保留 0xFF；仅 DS5 将二值满幅值降为约 25%。 */
+                /* 通用层保留 0xFF；仅 DS5 将二值满幅值降为最小测试力度。 */
                 set_conf->hf_motor_pwr = (fb_data->hf_pwr == 0xFF) ?
                     PS5_BINARY_HF_MOTOR_PWR : fb_data->hf_pwr;
                 set_conf->lf_motor_pwr = fb_data->lf_pwr;
