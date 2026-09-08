@@ -82,7 +82,7 @@ static const uint32_t ps3_btns_mask[32] = {
 /* hidp_data[0]=0x00，Power 在完整报告偏移 30，对应 input[29] */
 #define PS3_BATT_OFF 29
 #define PS3_BATT_SAMPLE_MASK 0xFF
-#define PS3_BATT_CHARGING 0xEE
+#define PS3_BATT_CHARGING 0xEE /* 充电中；已满会变成 0xEF，不会命中 */
 #define PS3_BATT_DYING 0x01
 
 static void ps3_batt_sample(struct bt_data *bt_data) {
@@ -95,6 +95,7 @@ static void ps3_batt_sample(struct bt_data *bt_data) {
 
     power = bt_data->base.input[PS3_BATT_OFF];
     bt_data->base.batt_level = power;
+    /* 只认 0xEE。已满是 0xEF，不会当充电灯 */
     bt_data->base.batt_charging = (power == PS3_BATT_CHARGING);
     bt_data->base.batt_valid = 1;
 }
@@ -133,7 +134,7 @@ static void ps3_set_batt_led(struct bt_data *bt_data, uint8_t mode) {
     }
 
     if (mode == PS3_BATT_LED_CHARGE) {
-        /* 充电：当前玩家灯慢闪，不做低电四灯闪 */
+        /* 充电且未满：当前玩家灯慢闪，不做低电四灯闪 */
         ps3_set_led_blink_pattern(set_conf, bt_hid_led_dev_id_map[idx] << 1);
     }
     else if (mode == PS3_BATT_LED_LOW) {
@@ -249,7 +250,7 @@ bool ps3_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_data) {
             }
             break;
         case FB_TYPE_PLAYER_LED:
-            /* 充电玩家灯闪 / 低电四灯闪优先；正常保持熄灭 */
+            /* 充电未满玩家灯闪 / 低电四灯闪优先；满电或正常保持熄灭 */
             if (!bt_data->base.batt_low && !bt_data->base.batt_charging) {
                 ps3_set_batt_led(bt_data, PS3_BATT_LED_OFF);
             }

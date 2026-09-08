@@ -108,6 +108,8 @@ static const uint32_t ps4_btns_mask[32] = {
 #define PS_BATT_SAMPLE_MASK 0xFF
 #define PS4_BATT_CABLE BIT(4)
 #define PS5_BATT_CHARGE_SHIFT 4
+#define PS5_BATT_CHARGING 0x1
+#define PS_BATT_LEVEL_FULL 10 /* 0-10 对应 0-100% */
 
 static void ps_batt_sample(struct bt_data *bt_data, uint32_t off) {
     uint8_t status, level, charging;
@@ -120,10 +122,12 @@ static void ps_batt_sample(struct bt_data *bt_data, uint32_t off) {
     status = bt_data->base.input[off];
     level = status & 0x0F;
     if (bt_data->base.report_id == 0x31) {
-        charging = (status >> PS5_BATT_CHARGE_SHIFT) != 0;
+        /* 高半字节 1=充电中，2=已充满。只认 1，满电自然不会亮绿灯 */
+        charging = (status >> PS5_BATT_CHARGE_SHIFT) == PS5_BATT_CHARGING;
     }
     else {
-        charging = (status & PS4_BATT_CABLE) || (level >= 0x0B);
+        /* 插电且容量 nibble < 10 才算充电中；10=100%，11+=插电满电 */
+        charging = (status & PS4_BATT_CABLE) && (level < PS_BATT_LEVEL_FULL);
     }
 
     bt_data->base.batt_level = level;
@@ -201,7 +205,7 @@ void ps_batt_led_poll(struct bt_data *bt_data, uint32_t tick) {
         return;
     }
 
-    /* 充电时不做低电红闪，灯条绿灯常亮 */
+    /* 充电且未满：绿灯常亮。插电已满则走熄灯，不做低电红闪 */
     if (bt_data->base.batt_charging) {
         if ((tick % 500) == 0) {
             bt_data->base.batt_low = 0;
@@ -383,7 +387,7 @@ static void ps4_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
             }
             break;
         case FB_TYPE_PLAYER_LED:
-            /* 充电绿灯 / 低电红闪优先；正常保持灯条熄灭 */
+            /* 充电未满绿灯 / 低电红闪优先；满电或正常保持灯条熄灭 */
             if (!bt_data->base.batt_low && !bt_data->base.batt_charging) {
                 ps4_set_batt_led(set_conf, PS_BATT_LED_OFF);
             }
@@ -410,6 +414,7 @@ static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
             }
             break;
         case FB_TYPE_PLAYER_LED:
+            /* 充电未满绿灯 / 低电红闪优先；满电或正常保持灯条熄灭 */
             if (!bt_data->base.batt_low && !bt_data->base.batt_charging) {
                 ps5_set_batt_led(set_conf, PS_BATT_LED_OFF);
             }
