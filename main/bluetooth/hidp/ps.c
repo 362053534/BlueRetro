@@ -124,7 +124,7 @@ static void bt_hid_ps5_init_callback(void *arg) {
         memset(set_conf, 0x00, sizeof(*set_conf));
         set_conf->conf0 = 0x02;
         set_conf->cmd = 0x03;
-        set_conf->conf1 = 0x04;
+        set_conf->conf1 = BT_HIDP_PS5_LED_LIGHTBAR_CONTROL;
         set_conf->leds = 0; /* 默认熄灭灯条 */
         bt_data->base.led_off_retry = PS5_LED_OFF_RETRY;
 
@@ -166,14 +166,19 @@ void bt_hid_ps5_clear_led(struct bt_dev *device) {
     struct bt_data *bt_data = &bt_adapter.data[device->ids.id];
     struct bt_hidp_ps5_set_conf *out =
         (struct bt_hidp_ps5_set_conf *)bt_data->base.output;
-    struct bt_hidp_ps5_set_conf clear = {
-        .conf0 = 0x02,
-        .cmd = 0x03, /* 带着震动有效位，避免 RELEASE 把马达关掉 */
-        .conf1 = 0x08,
-        .hf_motor_pwr = out->hf_motor_pwr,
-        .lf_motor_pwr = out->lf_motor_pwr,
-    };
+    struct bt_hidp_ps5_set_conf clear = *out;
 
+    clear.conf0 = 0x02;
+    clear.cmd = 0x03;
+    clear.leds = 0;
+
+    /* 先释放旧的灯光控制，兼容需要 RELEASE_LEDS 的手柄固件。 */
+    clear.conf1 = BT_HIDP_PS5_LED_RELEASE;
+    bt_hid_cmd_ps5_set_conf(device, &clear);
+
+    /* 再明确接管并关闭玩家灯和灯条，避免手柄恢复自己的玩家灯闪烁。 */
+    clear.conf1 = BT_HIDP_PS5_LED_LIGHTBAR_CONTROL | BT_HIDP_PS5_LED_PLAYER_CONTROL;
+    clear.player_leds = 0;
     bt_hid_cmd_ps5_set_conf(device, &clear);
 }
 

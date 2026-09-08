@@ -36,6 +36,9 @@ struct bt_hidp_ps4_set_conf {
 } __packed;
 
 #define BT_HIDP_PS5_SET_CONF 0x31
+#define BT_HIDP_PS5_LED_LIGHTBAR_CONTROL 0x04
+#define BT_HIDP_PS5_LED_RELEASE 0x08
+#define BT_HIDP_PS5_LED_PLAYER_CONTROL 0x10
 struct bt_hidp_ps5_set_conf {
     uint8_t conf0;
     uint8_t cmd;
@@ -68,7 +71,8 @@ struct bt_hidp_ps5_set_conf {
     uint8_t l2_haptic_power_level;
     uint8_t tbd6; // Internal speaker volume
     uint8_t use_accurate_rumble;
-    uint8_t tbd7[5];
+    uint8_t tbd7[4];
+    uint8_t player_leds;
     uint32_t leds;
     uint8_t tbd8[24];
     uint32_t crc;

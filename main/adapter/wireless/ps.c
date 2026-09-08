@@ -407,6 +407,8 @@ static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
             break;
         case FB_TYPE_PLAYER_LED:
             /* 充电未满绿灯 / 低电红闪优先；满电或正常保持灯条熄灭 */
+            set_conf->conf1 |= BT_HIDP_PS5_LED_PLAYER_CONTROL;
+            set_conf->player_leds = 0;
             if (!bt_data->base.batt_low && !bt_data->base.batt_charging) {
                 ps5_set_batt_led(set_conf, PS_BATT_LED_OFF);
             }
