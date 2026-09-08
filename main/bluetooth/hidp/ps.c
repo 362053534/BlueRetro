@@ -89,7 +89,7 @@ static void bt_hid_cmd_ps5_trigger_init(struct bt_dev *device) {
 
     struct bt_hidp_ps5_set_conf ps5_set_conf = {
         .conf0 = 0x02,
-        .cmd = 0x0c,
+        .cmd = 0x0F, /* 0x03 震动有效位 | 0x0C 扳机，避免扳机初始化把马达关掉 */
         .r2_trigger_motor_mode = perc_threshold_r > -1 ? 0x02 : 0x00,
         .r2_trigger_start_resistance = r2_trigger_start_resistance,
         .r2_trigger_effect_force = r2_trigger_effect_force,
@@ -121,23 +121,14 @@ static void bt_hid_ps5_init_callback(void *arg) {
         /* Init output data for Rumble/LED feedback */
         memset(set_conf, 0x00, sizeof(*set_conf));
         set_conf->conf0 = 0x02;
-        set_conf->cmd = 0x03;
-        set_conf->conf1 = 0x04;
+        set_conf->cmd = 0x03; /* 兼容震动 + haptics，后续灯控不得清掉 */
+        set_conf->conf1 = 0x04; /* 只改灯条，不要发 RELEASE_LEDS */
         set_conf->leds = 0; /* 默认熄灭灯条 */
 
-        struct bt_hidp_ps5_set_conf ps5_clear_led = {
-            .conf0 = 0x02,
-            .conf1 = 0x08,
-        };
-        struct bt_hidp_ps5_set_conf ps5_set_led = {
-            .conf0 = 0x02,
-            .conf1 = 0x04,
-        };
-        ps5_set_led.leds = 0;
         printf("# %s\n", __FUNCTION__);
 
-        bt_hid_cmd_ps5_set_conf(device, (void *)&ps5_clear_led);
-        bt_hid_cmd_ps5_set_conf(device, (void *)&ps5_set_led);
+        /* 熄灯必须带着震动有效位一起发。cmd=0 的 0x08 包会把 DS5 马达也关掉 */
+        bt_hid_cmd_ps5_set_conf(device, (void *)set_conf);
 
         /* Set trigger "click" haptic effect when rumble is on */
         if (config.out_cfg[device->ids.out_idx].acc_mode == ACC_RUMBLE

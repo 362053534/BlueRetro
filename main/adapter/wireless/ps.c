@@ -164,6 +164,10 @@ static void ps4_set_batt_led(struct bt_hidp_ps4_set_conf *set_conf, uint8_t mode
 }
 
 static void ps5_set_batt_led(struct bt_hidp_ps5_set_conf *set_conf, uint8_t mode) {
+    /* 只改灯条，保留震动有效位和当前马达值 */
+    set_conf->conf0 = 0x02;
+    set_conf->cmd = 0x03;
+    set_conf->conf1 = 0x04;
     if (mode == PS_BATT_LED_CHARGE) {
         set_conf->leds = 0x0000FF00; /* G */
     }
@@ -392,6 +396,10 @@ static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
 
     switch (fb_data->type) {
         case FB_TYPE_RUMBLE:
+            /* 每次写马达都重新武装有效位，避免灯控包把 cmd 清 0 后再也震不起来 */
+            set_conf->conf0 = 0x02;
+            set_conf->cmd = 0x03;
+            set_conf->conf1 = 0x04;
             if (fb_data->state) {
                 set_conf->hf_motor_pwr = fb_data->hf_pwr;
                 set_conf->lf_motor_pwr = fb_data->lf_pwr;
