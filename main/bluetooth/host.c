@@ -31,6 +31,7 @@
 #include "adapter/wired/wired.h"
 #include "adapter/hid_parser.h"
 #include "adapter/wireless/wireless.h"
+#include "bluetooth/hidp/ps.h"
 
 #define BT_TX 0
 #define BT_RX 1
@@ -254,7 +255,14 @@ static void bt_fb_task(void *param) {
                     break;
                 case FB_TYPE_STATUS_LED:
                 case FB_TYPE_PLAYER_LED:
-                    /* DS5 不要单独发 RELEASE_LEDS：cmd=0/马达=0 的 0x08 包会关掉震动 */
+                    if (device && device->ids.subtype == BT_PS5_DS) {
+                        /* We need to clear LEDs before setting them */
+                        struct bt_hidp_ps5_set_conf ps5_clear_led = {
+                            .conf0 = 0x02,
+                            .conf1 = 0x08,
+                        };
+                        bt_hid_cmd_ps_set_conf(device, (void *)&ps5_clear_led);
+                    }
                     /* Fallthrough */
                 case FB_TYPE_RUMBLE:
                     if (bt_data) {
