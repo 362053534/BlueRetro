@@ -11,6 +11,8 @@
 #include "bluetooth/host.h"
 #include "ps.h"
 
+#define PS5_LED_OFF_RETRY 8
+
 static void bt_hid_cmd_ps5_set_conf(struct bt_dev *device, void *report);
 
 static void bt_hid_cmd_ps4_set_conf(struct bt_dev *device, void *report) {
@@ -124,20 +126,13 @@ static void bt_hid_ps5_init_callback(void *arg) {
         set_conf->cmd = 0x03;
         set_conf->conf1 = 0x04;
         set_conf->leds = 0; /* 默认熄灭灯条 */
+        bt_data->base.led_off_retry = PS5_LED_OFF_RETRY;
 
-        struct bt_hidp_ps5_set_conf ps5_clear_led = {
-            .conf0 = 0x02,
-            .conf1 = 0x08,
-        };
-        struct bt_hidp_ps5_set_conf ps5_set_led = {
-            .conf0 = 0x02,
-            .conf1 = 0x04,
-        };
-        ps5_set_led.leds = 0;
         printf("# %s\n", __FUNCTION__);
 
-        bt_hid_cmd_ps5_set_conf(device, (void *)&ps5_clear_led);
-        bt_hid_cmd_ps5_set_conf(device, (void *)&ps5_set_led);
+        /* 此时手柄多半还没进 0x31，包可能被丢，后面靠 led_off_retry 补发 */
+        bt_hid_ps5_clear_led(device);
+        bt_hid_cmd_ps5_set_conf(device, (void *)set_conf);
 
         /* Set trigger "click" haptic effect when rumble is on */
         if (config.out_cfg[device->ids.out_idx].acc_mode == ACC_RUMBLE
@@ -165,6 +160,21 @@ static void bt_hid_cmd_ps5_set_conf(struct bt_dev *device, void *report) {
         sizeof(bt_hci_pkt_tmp.hidp_hdr) + sizeof(*set_conf) - sizeof(set_conf->crc));
 
     bt_hid_cmd(device->acl_handle, device->intr_chan.dcid, BT_HIDP_DATA_OUT, BT_HIDP_PS5_SET_CONF, sizeof(*set_conf));
+}
+
+void bt_hid_ps5_clear_led(struct bt_dev *device) {
+    struct bt_data *bt_data = &bt_adapter.data[device->ids.id];
+    struct bt_hidp_ps5_set_conf *out =
+        (struct bt_hidp_ps5_set_conf *)bt_data->base.output;
+    struct bt_hidp_ps5_set_conf clear = {
+        .conf0 = 0x02,
+        .cmd = 0x03, /* 带着震动有效位，避免 RELEASE 把马达关掉 */
+        .conf1 = 0x08,
+        .hf_motor_pwr = out->hf_motor_pwr,
+        .lf_motor_pwr = out->lf_motor_pwr,
+    };
+
+    bt_hid_cmd_ps5_set_conf(device, &clear);
 }
 
 void bt_hid_cmd_ps_set_conf(struct bt_dev *device, void *report) {
@@ -256,6 +266,8 @@ void bt_hid_ps_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, ui
                     if (device->ids.report_type != BT_HIDP_PS5_STATUS) {
                         bt_type_update(device->ids.id, BT_PS, BT_PS5_DS);
                         device->ids.report_type = BT_HIDP_PS5_STATUS;
+                        /* 这时才真正吃输出包，补发熄灯 */
+                        bt_adapter.data[device->ids.id].base.led_off_retry = PS5_LED_OFF_RETRY;
                     }
 #ifdef CONFIG_BLUERETRO_ADAPTER_RUMBLE_TEST
                     struct bt_hidp_ps5_set_conf rumble = {

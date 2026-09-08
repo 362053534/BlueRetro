@@ -256,12 +256,8 @@ static void bt_fb_task(void *param) {
                 case FB_TYPE_STATUS_LED:
                 case FB_TYPE_PLAYER_LED:
                     if (device && device->ids.subtype == BT_PS5_DS) {
-                        /* We need to clear LEDs before setting them */
-                        struct bt_hidp_ps5_set_conf ps5_clear_led = {
-                            .conf0 = 0x02,
-                            .conf1 = 0x08,
-                        };
-                        bt_hid_cmd_ps_set_conf(device, (void *)&ps5_clear_led);
+                        /* RELEASE 前带上当前马达，避免熄灯把震动清掉 */
+                        bt_hid_ps5_clear_led(device);
                     }
                     /* Fallthrough */
                 case FB_TYPE_RUMBLE:
@@ -358,6 +354,13 @@ static void bt_fb_task(void *param) {
                 if (atomic_test_bit(&device->flags, BT_DEV_HID_INIT_DONE)) {
                     struct bt_data *bt_data = &bt_adapter.data[device->ids.id];
 
+                    /* DS5 连上后空闲补发 RELEASE+熄灯；震动期间不发，免得打断马达 */
+                    if (!rumble_on &&
+                            device->ids.subtype == BT_PS5_DS &&
+                            bt_data->base.led_off_retry) {
+                        bt_hid_ps5_clear_led(device);
+                        bt_data->base.led_off_retry--;
+                    }
                     bt_hid_feedback(device, bt_data->base.output);
                 }
             }
