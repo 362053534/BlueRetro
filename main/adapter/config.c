@@ -222,7 +222,8 @@ static void config_init_struct(struct config *data) {
 
     for (uint32_t i = 0; i < WIRED_MAX_DEV; i++) {
         data->out_cfg[i].dev_mode = DEV_PAD;
-        data->out_cfg[i].acc_mode = ACC_NONE;
+        /* 默认开启震动。ACC_NONE 时 PS2 的 0x42 不会入队，DS3/4/5 都会完全不震 */
+        data->out_cfg[i].acc_mode = ACC_RUMBLE;
         data->in_cfg[i].bt_dev_id = 0x00; /* Not used placeholder */
         data->in_cfg[i].bt_subdev_id = 0x00;  /* Not used placeholder */
         data->in_cfg[i].map_size = KBM_MAX + BR_COMBO_CNT;
