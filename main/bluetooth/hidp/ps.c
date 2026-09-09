@@ -179,8 +179,8 @@ static void bt_hid_cmd_ps5_set_conf(struct bt_dev *device, void *report) {
         offsetof(struct bt_hidp_ps5_set_conf, valid_flag2)
         - offsetof(struct bt_hidp_ps5_set_conf, mic_led));
     set_conf->valid_flag2 = src->valid_flag2;
-    set_conf->tbd6[0] = src->use_accurate_rumble;
-    set_conf->tbd6[1] = src->tbd7[0];
+    set_conf->haptics_flags = src->haptics_flags;
+    set_conf->tbd6 = src->tbd7[0];
     set_conf->lightbar_setup = src->tbd7[1];
     set_conf->led_brightness = src->tbd7[2];
     set_conf->player_leds = src->player_leds;
