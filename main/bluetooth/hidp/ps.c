@@ -171,7 +171,8 @@ static void bt_hid_cmd_ps5_set_conf(struct bt_dev *device, void *report) {
     set_conf->seq_tag = (ps5_bt_output_seq[device->ids.id]++ & 0x0F) << 4;
     set_conf->tag = PS5_BT_OUTPUT_TAG;
     set_conf->valid_flag0 = src->cmd;
-    set_conf->valid_flag1 = src->conf1;
+    /* 本轮不启用低通滤波控制，只保留灯光和震动衰减控制位。 */
+    set_conf->valid_flag1 = src->conf1 & ~BT_HIDP_PS5_HAPTICS_LOW_PASS_FILTER_ENABLE;
     set_conf->hf_motor_pwr = src->hf_motor_pwr;
     set_conf->lf_motor_pwr = src->lf_motor_pwr;
     memcpy(set_conf->tbd0, src->tbd0, sizeof(set_conf->tbd0));
@@ -179,7 +180,8 @@ static void bt_hid_cmd_ps5_set_conf(struct bt_dev *device, void *report) {
         offsetof(struct bt_hidp_ps5_set_conf, valid_flag2)
         - offsetof(struct bt_hidp_ps5_set_conf, mic_led));
     set_conf->valid_flag2 = src->valid_flag2;
-    set_conf->haptics_flags = src->haptics_flags;
+    /* 清零触觉附加标志，避免启用未知的触觉处理或低通滤波。 */
+    set_conf->haptics_flags = 0x00;
     set_conf->tbd6 = src->tbd7[0];
     set_conf->lightbar_setup = src->tbd7[1];
     set_conf->led_brightness = src->tbd7[2];
