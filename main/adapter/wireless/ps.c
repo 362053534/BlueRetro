@@ -14,9 +14,14 @@
 /* DS5 对 PS2 二值小电机恢复满幅输出，用于单独测试小电机震感。 */
 #define PS5_BINARY_HF_MOTOR_PWR 0xFF
 
+#define PS5_LF_MOTOR_MAP_THRESHOLD 0xF0
+#define PS5_LF_MOTOR_MAP_LINEAR_START (PS5_LF_MOTOR_MAP_THRESHOLD + 1)
+#define PS5_LF_MOTOR_MAP_LINEAR_SPAN (0xFF - PS5_LF_MOTOR_MAP_LINEAR_START)
+#define PS5_LF_MOTOR_MAP_OUTPUT_START 0x02
+
 /*
  * 将 PS2 大电机的低段压缩到 DS5 的最小有效力度，保留高段的线性动态范围。
- * 0x00 保持关闭；0x01~0x40 映射为 0x01；0x41~0xFF 映射为 0x02~0xFF。
+ * 0x00 保持关闭；0x01~0xF0 映射为 0x01；0xF1~0xFF 映射为 0x02~0xFF。
  */
 static uint8_t ps5_map_lf_motor_pwr(uint32_t pwr) {
     uint8_t value = (pwr > 0xFF) ? 0xFF : (uint8_t)pwr;
@@ -24,13 +29,16 @@ static uint8_t ps5_map_lf_motor_pwr(uint32_t pwr) {
     if (value == 0x00) {
         return 0x00;
     }
-    if (value <= 0x40) {
+    if (value <= PS5_LF_MOTOR_MAP_THRESHOLD) {
         return 0x01;
     }
 
-    /* 使用四舍五入，确保 0x41 映射为 0x02、0xFF 映射为 0xFF。 */
-    return (uint8_t)(0x02 +
-        (((uint16_t)(value - 0x41) * 253) + 95) / 190);
+    /* 使用四舍五入，确保线性映射起点为 0x02、最大值为 0xFF。 */
+    return (uint8_t)(PS5_LF_MOTOR_MAP_OUTPUT_START +
+        (((uint16_t)(value - PS5_LF_MOTOR_MAP_LINEAR_START) *
+            (0xFF - PS5_LF_MOTOR_MAP_OUTPUT_START)) +
+            (PS5_LF_MOTOR_MAP_LINEAR_SPAN / 2)) /
+        PS5_LF_MOTOR_MAP_LINEAR_SPAN);
 }
 
 enum {
