@@ -41,6 +41,52 @@ struct bt_hidp_ps4_set_conf {
 #define BT_HIDP_PS5_LED_PLAYER_CONTROL 0x10
 #define BT_HIDP_PS5_HAPTICS_SELECT 0x02
 #define BT_HIDP_PS5_RUMBLE_IMPROVED 0x04
+
+/*
+ * 现有输出缓存仍使用 USB 风格布局，发送蓝牙时需要转换为真正的蓝牙布局。
+ * 蓝牙 HIDP 的 0x31 已经作为报告 ID 放在 HIDP 协议字段中，因此这里不再重复放报告 ID。
+ */
+struct bt_hidp_ps5_bt_set_conf {
+    uint8_t seq_tag;
+    uint8_t tag;
+    uint8_t valid_flag0;
+    uint8_t valid_flag1;
+    uint8_t hf_motor_pwr;
+    uint8_t lf_motor_pwr;
+    uint8_t tbd0[4];
+    uint8_t mic_led;
+    uint8_t tbd1;
+    uint8_t r2_trigger_motor_mode;
+    uint8_t r2_trigger_start_resistance;
+    uint8_t r2_trigger_effect_force;
+    uint8_t r2_trigger_range_force;
+    uint8_t r2_trigger_near_release_str;
+    uint8_t r2_trigger_near_middle_str;
+    uint8_t r2_trigger_pressed_str;
+    uint8_t tbd2[2];
+    uint8_t r2_trigger_actuation_freq;
+    uint8_t tbd3;
+    uint8_t l2_trigger_motor_mode;
+    uint8_t l2_trigger_start_resistance;
+    uint8_t l2_trigger_effect_force;
+    uint8_t l2_trigger_range_force;
+    uint8_t l2_trigger_near_release_str;
+    uint8_t l2_trigger_near_middle_str;
+    uint8_t l2_trigger_pressed_str;
+    uint8_t tbd4[2];
+    uint8_t l2_trigger_actuation_freq;
+    /* 左触发器末尾的保留字节加上后续的六个保留字节 */
+    uint8_t tbd5[7];
+    uint8_t valid_flag2;
+    uint8_t tbd6[2];
+    uint8_t lightbar_setup;
+    uint8_t led_brightness;
+    uint8_t player_leds;
+    uint8_t rgb[3];
+    uint8_t tbd7[24];
+    uint32_t crc;
+} __packed;
+
 struct bt_hidp_ps5_set_conf {
     uint8_t conf0;
     uint8_t cmd;

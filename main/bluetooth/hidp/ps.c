@@ -4,6 +4,7 @@
  */
 
 #include <stdio.h>
+#include <stddef.h>
 #include <esp32/rom/crc.h>
 #include <esp_timer.h>
 #include "adapter/adapter.h"
@@ -12,6 +13,9 @@
 #include "ps.h"
 
 #define PS5_LED_OFF_RETRY 8
+#define PS5_BT_OUTPUT_TAG 0x10
+
+static uint8_t ps5_bt_output_seq[BT_MAX_DEV];
 
 static void bt_hid_cmd_ps5_set_conf(struct bt_dev *device, void *report);
 
@@ -123,11 +127,12 @@ static void bt_hid_ps5_init_callback(void *arg) {
         /* Init output data for Rumble/LED feedback */
         memset(set_conf, 0x00, sizeof(*set_conf));
         set_conf->conf0 = 0x02;
-        /* 保留当前手柄必须的兼容震动位，同时测试改进震动有效位。 */
-        set_conf->cmd = BT_HIDP_PS5_HAPTICS_SELECT | 0x01;
+        /* 只启用 Haptics Select，改进震动位与兼容震动位不再同时开启。 */
+        set_conf->cmd = BT_HIDP_PS5_HAPTICS_SELECT;
         set_conf->valid_flag2 = BT_HIDP_PS5_RUMBLE_IMPROVED;
         set_conf->conf1 = BT_HIDP_PS5_LED_LIGHTBAR_CONTROL;
         set_conf->leds = 0; /* 默认熄灭灯条 */
+        ps5_bt_output_seq[device->ids.id] = 0;
         bt_data->base.led_off_retry = PS5_LED_OFF_RETRY;
 
         printf("# %s\n", __FUNCTION__);
@@ -151,12 +156,35 @@ static void bt_hid_ps5_init_callback(void *arg) {
 }
 
 static void bt_hid_cmd_ps5_set_conf(struct bt_dev *device, void *report) {
-    struct bt_hidp_ps5_set_conf *set_conf = (struct bt_hidp_ps5_set_conf *)bt_hci_pkt_tmp.hidp_data;
+    struct bt_hidp_ps5_set_conf *src = (struct bt_hidp_ps5_set_conf *)report;
+    struct bt_hidp_ps5_bt_set_conf *set_conf =
+        (struct bt_hidp_ps5_bt_set_conf *)bt_hci_pkt_tmp.hidp_data;
 
     bt_hci_pkt_tmp.hidp_hdr.hdr = BT_HIDP_DATA_OUT;
     bt_hci_pkt_tmp.hidp_hdr.protocol = BT_HIDP_PS5_SET_CONF;
 
-    memcpy((void *)set_conf, report, sizeof(*set_conf));
+    /*
+     * 0x31 蓝牙输出报告由 sequence、tag 和 common 区域组成。
+     * 原有缓存是 USB 风格布局，不能直接作为蓝牙 payload 发送。
+     */
+    memset(set_conf, 0x00, sizeof(*set_conf));
+    set_conf->seq_tag = (ps5_bt_output_seq[device->ids.id]++ & 0x0F) << 4;
+    set_conf->tag = PS5_BT_OUTPUT_TAG;
+    set_conf->valid_flag0 = src->cmd;
+    set_conf->valid_flag1 = src->conf1;
+    set_conf->hf_motor_pwr = src->hf_motor_pwr;
+    set_conf->lf_motor_pwr = src->lf_motor_pwr;
+    memcpy(set_conf->tbd0, src->tbd0, sizeof(set_conf->tbd0));
+    memcpy(&set_conf->mic_led, &src->mic_led,
+        offsetof(struct bt_hidp_ps5_set_conf, valid_flag2)
+        - offsetof(struct bt_hidp_ps5_set_conf, mic_led));
+    set_conf->valid_flag2 = src->valid_flag2;
+    set_conf->tbd6[0] = src->use_accurate_rumble;
+    set_conf->tbd6[1] = src->tbd7[0];
+    set_conf->lightbar_setup = src->tbd7[1];
+    set_conf->led_brightness = src->tbd7[2];
+    set_conf->player_leds = src->player_leds;
+    memcpy(set_conf->rgb, (uint8_t *)&src->leds, sizeof(set_conf->rgb));
 
     set_conf->crc = crc32_le((uint32_t)~0xFFFFFFFF, (void *)&bt_hci_pkt_tmp.hidp_hdr,
         sizeof(bt_hci_pkt_tmp.hidp_hdr) + sizeof(*set_conf) - sizeof(set_conf->crc));
@@ -171,7 +199,7 @@ void bt_hid_ps5_clear_led(struct bt_dev *device) {
     struct bt_hidp_ps5_set_conf clear = *out;
 
     clear.conf0 = 0x02;
-    clear.cmd = 0x03;
+    clear.cmd = BT_HIDP_PS5_HAPTICS_SELECT;
     clear.leds = 0;
 
     /* 先释放旧的灯光控制，兼容需要 RELEASE_LEDS 的手柄固件。 */
