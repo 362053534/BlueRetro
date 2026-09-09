@@ -11,8 +11,8 @@
 #include "adapter/config.h"
 #include "ps.h"
 
-/* DS5 对 PS2 二值小电机先使用最小测试力度。 */
-#define PS5_BINARY_HF_MOTOR_PWR 0x01
+/* DS5 对 PS2 二值小电机先关闭，验证小电机是否造成整体震感过强。 */
+#define PS5_BINARY_HF_MOTOR_PWR 0x00
 
 enum {
     PS4_S = 4,
