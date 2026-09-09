@@ -400,10 +400,10 @@ static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
     switch (fb_data->type) {
         case FB_TYPE_RUMBLE:
             if (fb_data->state) {
-                /* 小电机保持正常满幅输出，大电机暂时关闭以隔离测试。 */
+                /* 小电机保持正常满幅输出，大电机使用PS2原始力度。 */
                 set_conf->hf_motor_pwr = (fb_data->hf_pwr == 0xFF) ?
                     PS5_BINARY_HF_MOTOR_PWR : fb_data->hf_pwr;
-                set_conf->lf_motor_pwr = 0x00;
+                set_conf->lf_motor_pwr = fb_data->lf_pwr;
             }
             else {
                 set_conf->hf_motor_pwr = 0x00;

@@ -39,6 +39,8 @@ struct bt_hidp_ps4_set_conf {
 #define BT_HIDP_PS5_LED_LIGHTBAR_CONTROL 0x04
 #define BT_HIDP_PS5_LED_RELEASE 0x08
 #define BT_HIDP_PS5_LED_PLAYER_CONTROL 0x10
+#define BT_HIDP_PS5_HAPTICS_SELECT 0x02
+#define BT_HIDP_PS5_RUMBLE_IMPROVED 0x04
 struct bt_hidp_ps5_set_conf {
     uint8_t conf0;
     uint8_t cmd;
@@ -69,7 +71,7 @@ struct bt_hidp_ps5_set_conf {
     uint8_t l2_trigger_actuation_freq;
     uint8_t tbd5[5];
     uint8_t l2_haptic_power_level;
-    uint8_t tbd6; // Internal speaker volume
+    uint8_t valid_flag2; /* 第三组输出有效位，0x04为改进震动模式 */
     uint8_t use_accurate_rumble;
     uint8_t tbd7[4];
     uint8_t player_leds;

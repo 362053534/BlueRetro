@@ -123,7 +123,9 @@ static void bt_hid_ps5_init_callback(void *arg) {
         /* Init output data for Rumble/LED feedback */
         memset(set_conf, 0x00, sizeof(*set_conf));
         set_conf->conf0 = 0x02;
-        set_conf->cmd = 0x03;
+        /* 最新固件使用改进震动，不再启用旧的兼容震动位。 */
+        set_conf->cmd = BT_HIDP_PS5_HAPTICS_SELECT;
+        set_conf->valid_flag2 = BT_HIDP_PS5_RUMBLE_IMPROVED;
         set_conf->conf1 = BT_HIDP_PS5_LED_LIGHTBAR_CONTROL;
         set_conf->leds = 0; /* 默认熄灭灯条 */
         bt_data->base.led_off_retry = PS5_LED_OFF_RETRY;
