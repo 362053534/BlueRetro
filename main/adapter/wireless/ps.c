@@ -11,8 +11,8 @@
 #include "adapter/config.h"
 #include "ps.h"
 
-/* DS5 对 PS2 二值小电机先关闭，验证小电机是否造成整体震感过强。 */
-#define PS5_BINARY_HF_MOTOR_PWR 0x00
+/* DS5 对 PS2 二值小电机恢复满幅输出，用于单独测试小电机震感。 */
+#define PS5_BINARY_HF_MOTOR_PWR 0xFF
 
 enum {
     PS4_S = 4,
@@ -400,10 +400,10 @@ static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
     switch (fb_data->type) {
         case FB_TYPE_RUMBLE:
             if (fb_data->state) {
-                /* 通用层保留 0xFF；仅 DS5 将二值满幅值降为最小测试力度。 */
+                /* 小电机保持正常满幅输出，大电机暂时关闭以隔离测试。 */
                 set_conf->hf_motor_pwr = (fb_data->hf_pwr == 0xFF) ?
                     PS5_BINARY_HF_MOTOR_PWR : fb_data->hf_pwr;
-                set_conf->lf_motor_pwr = fb_data->lf_pwr;
+                set_conf->lf_motor_pwr = 0x00;
             }
             else {
                 set_conf->hf_motor_pwr = 0x00;
