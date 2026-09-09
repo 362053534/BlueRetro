@@ -181,8 +181,8 @@ static void bt_hid_cmd_ps5_set_conf(struct bt_dev *device, void *report) {
         - offsetof(struct bt_hidp_ps5_set_conf, mic_led));
     set_conf->valid_flag2 = src->valid_flag2;
     /* 清零触觉附加标志，避免启用未知的触觉处理或低通滤波。 */
-    set_conf->haptics_flags = 0x00;
-    set_conf->tbd6 = src->tbd7[0];
+    set_conf->tbd6[0] = 0x00;
+    set_conf->tbd6[1] = src->tbd7[0];
     set_conf->lightbar_setup = src->tbd7[1];
     set_conf->led_brightness = src->tbd7[2];
     set_conf->player_leds = src->player_leds;
