@@ -41,6 +41,7 @@ struct bt_hidp_ps4_set_conf {
 #define BT_HIDP_PS5_LED_PLAYER_CONTROL 0x10
 #define BT_HIDP_PS5_HAPTICS_SELECT 0x02
 #define BT_HIDP_PS5_RUMBLE_IMPROVED 0x04
+#define BT_HIDP_PS5_VIBRATION_ATTENUATION_ENABLE 0x40
 
 /*
  * 现有输出缓存仍使用 USB 风格布局，发送蓝牙时需要转换为真正的蓝牙布局。
