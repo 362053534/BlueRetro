@@ -408,7 +408,7 @@ static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
             if (fb_data->state) {
                 /* Enable DS5 vibration attenuation: reduce_motor_power low nibble = main-motor atten 0..7 (7 = weakest). */
                 /* Large (low-freq) motor keeps the raw PS2 magnitude. */
-                set_conf->conf1 |= BT_HIDP_PS5_VIBRATION_ATTENUATION_ENABLE;
+                set_conf->valid_flag1 |= BT_HIDP_PS5_VIBRATION_ATTENUATION_ENABLE;
                 /* low nibble = large-motor atten step from ps5_lf_atten(); trigger (high) nibble stays 0 */
                 set_conf->reduce_motor_power = ps5_lf_atten(fb_data->lf_pwr);
                 set_conf->hf_motor_pwr = (fb_data->hf_pwr == 0xFF) ?
@@ -417,7 +417,7 @@ static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
             }
             else {
                 /* Keep attenuation enabled on stop as well, so no controller default leaks through. */
-                set_conf->conf1 |= BT_HIDP_PS5_VIBRATION_ATTENUATION_ENABLE;
+                set_conf->valid_flag1 |= BT_HIDP_PS5_VIBRATION_ATTENUATION_ENABLE;
                 /* low nibble = large-motor atten step from ps5_lf_atten(); trigger (high) nibble stays 0 */
                 set_conf->reduce_motor_power = ps5_lf_atten(fb_data->lf_pwr);
                 set_conf->hf_motor_pwr = 0x00;
@@ -426,7 +426,7 @@ static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
             break;
         case FB_TYPE_PLAYER_LED:
             /* 充电未满绿灯 / 低电红闪优先；满电或正常保持灯条熄灭 */
-            set_conf->conf1 |= BT_HIDP_PS5_LED_PLAYER_CONTROL;
+            set_conf->valid_flag1 |= BT_HIDP_PS5_LED_PLAYER_CONTROL;
             set_conf->player_leds = 0;
             if (!bt_data->base.batt_low && !bt_data->base.batt_charging) {
                 ps5_set_batt_led(set_conf, PS_BATT_LED_OFF);
