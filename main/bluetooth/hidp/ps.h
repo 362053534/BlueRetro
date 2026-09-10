@@ -76,17 +76,15 @@ struct bt_hidp_ps5_bt_set_conf {
     uint8_t l2_trigger_pressed_str;
     uint8_t tbd4[2];
     uint8_t l2_trigger_actuation_freq;
-    /* 主机时间戳、震动衰减等级和第二组音频控制字段。 */
-    uint8_t tbd5[6];
+    /* 左触发器末尾的保留字节加上后续的六个保留字节 */
+    uint8_t tbd5[7];
     uint8_t valid_flag2;
-    uint8_t haptics_flags;
-    uint8_t tbd6;
+    uint8_t tbd6[2];
     uint8_t lightbar_setup;
     uint8_t led_brightness;
     uint8_t player_leds;
     uint8_t rgb[3];
-    /* 保持当前蓝牙输出报文长度，末尾多出的字节作为保留字节。 */
-    uint8_t tbd7[25];
+    uint8_t tbd7[24];
     uint32_t crc;
 } __packed;
 
@@ -119,9 +117,9 @@ struct bt_hidp_ps5_set_conf {
     uint8_t tbd4[2];
     uint8_t l2_trigger_actuation_freq;
     uint8_t tbd5[5];
-    uint8_t audio_control2;
+    uint8_t l2_haptic_power_level;
     uint8_t valid_flag2; /* 第三组输出有效位，0x04为改进震动模式 */
-    uint8_t haptics_flags;
+    uint8_t use_accurate_rumble;
     uint8_t tbd7[4];
     uint8_t player_leds;
     uint32_t leds;
