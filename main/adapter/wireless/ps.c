@@ -394,10 +394,11 @@ static void ps4_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
     }
 }
 
-/* Map large (low-freq) motor magnitude 0..255 onto 8 equal attenuation bands of 32 counts:
- * small magnitude -> strongest attenuation (7), large -> no attenuation (0); band 0 spans 224..255. */
+/* Large (low-freq) motor magnitude -> attenuation step, one step every 16 counts:
+ * weak -> strongest (7); reaches 0 at lf=112 and is clamped at 0 across 112..255 (no unsigned underflow). */
 static inline uint8_t ps5_lf_atten(uint32_t lf) {
-    return (uint8_t)(7 - (lf >> 5));
+    uint32_t step = lf >> 4;
+    return step >= 7 ? 0 : (uint8_t)(7 - step);
 }
 
 static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_data) {
