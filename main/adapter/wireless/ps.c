@@ -394,6 +394,12 @@ static void ps4_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
     }
 }
 
+/* Map large (low-freq) motor magnitude 0..255 onto 8 equal attenuation bands of 32 counts:
+ * small magnitude -> strongest attenuation (7), large -> no attenuation (0); band 0 spans 224..255. */
+static inline uint8_t ps5_lf_atten(uint32_t lf) {
+    return (uint8_t)(7 - (lf >> 5));
+}
+
 static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_data) {
     struct bt_hidp_ps5_set_conf *set_conf = (struct bt_hidp_ps5_set_conf *)bt_data->base.output;
 
@@ -403,8 +409,8 @@ static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
                 /* Enable DS5 vibration attenuation: reduce_motor_power low nibble = main-motor atten 0..7 (7 = weakest). */
                 /* Large (low-freq) motor keeps the raw PS2 magnitude. */
                 set_conf->conf1 |= BT_HIDP_PS5_VIBRATION_ATTENUATION_ENABLE;
-                /* reduce_motor_power (common p36): low nibble = main-motor atten 0-7, 7 = weakest; mapped to BT tbd5[5] */
-                set_conf->reduce_motor_power = 0x07;
+                /* low nibble = large-motor atten step from ps5_lf_atten(); trigger (high) nibble stays 0 */
+                set_conf->reduce_motor_power = ps5_lf_atten(fb_data->lf_pwr);
                 set_conf->hf_motor_pwr = (fb_data->hf_pwr == 0xFF) ?
                     PS5_BINARY_HF_MOTOR_PWR : fb_data->hf_pwr;
                 set_conf->lf_motor_pwr = fb_data->lf_pwr;
@@ -412,8 +418,8 @@ static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
             else {
                 /* Keep attenuation enabled on stop as well, so no controller default leaks through. */
                 set_conf->conf1 |= BT_HIDP_PS5_VIBRATION_ATTENUATION_ENABLE;
-                /* reduce_motor_power (common p36): low nibble = main-motor atten 0-7, 7 = weakest; mapped to BT tbd5[5] */
-                set_conf->reduce_motor_power = 0x07;
+                /* low nibble = large-motor atten step from ps5_lf_atten(); trigger (high) nibble stays 0 */
+                set_conf->reduce_motor_power = ps5_lf_atten(fb_data->lf_pwr);
                 set_conf->hf_motor_pwr = 0x00;
                 set_conf->lf_motor_pwr = 0x00;
             }
