@@ -117,7 +117,7 @@ struct bt_hidp_ps5_set_conf {
     uint8_t tbd4[2];
     uint8_t l2_trigger_actuation_freq;
     uint8_t tbd5[5];
-    uint8_t l2_haptic_power_level;
+    uint8_t reduce_motor_power; /* common p36: bits0-2 rumble atten 0-7, bits4-6 trigger atten; needs valid_flag1 bit6 (0x40) */
     uint8_t valid_flag2; /* 第三组输出有效位，0x04为改进震动模式 */
     uint8_t use_accurate_rumble;
     uint8_t tbd7[4];
