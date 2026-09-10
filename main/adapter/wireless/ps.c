@@ -14,25 +14,6 @@
 /* DS5 对 PS2 二值小电机恢复满幅输出，用于单独测试小电机震感。 */
 #define PS5_BINARY_HF_MOTOR_PWR 0xFF
 
-/*
- * 将 PS2 大电机的低段压缩到 DS5 的最小有效力度，保留高段的线性动态范围。
- * 0x00 保持关闭；0x01~0x40 映射为 0x01；0x41~0xFF 映射为 0x02~0xFF。
- */
-static uint8_t ps5_map_lf_motor_pwr(uint32_t pwr) {
-    uint8_t value = (pwr > 0xFF) ? 0xFF : (uint8_t)pwr;
-
-    if (value == 0x00) {
-        return 0x00;
-    }
-    if (value <= 0x40) {
-        return 0x01;
-    }
-
-    /* 使用四舍五入，确保 0x41 映射为 0x02、0xFF 映射为 0xFF。 */
-    return (uint8_t)(0x02 +
-        (((uint16_t)(value - 0x41) * 253) + 95) / 190);
-}
-
 enum {
     PS4_S = 4,
     PS4_X,
@@ -428,7 +409,7 @@ static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
                 set_conf->tbd5[4] = 0x00;
                 set_conf->hf_motor_pwr = (fb_data->hf_pwr == 0xFF) ?
                     PS5_BINARY_HF_MOTOR_PWR : fb_data->hf_pwr;
-                set_conf->lf_motor_pwr = ps5_map_lf_motor_pwr(fb_data->lf_pwr);
+                set_conf->lf_motor_pwr = fb_data->lf_pwr;
             }
             else {
                 /* 停止震动时同样明确保持衰减等级为 0，避免残留默认状态。 */
