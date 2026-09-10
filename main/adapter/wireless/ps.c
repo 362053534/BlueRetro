@@ -406,7 +406,7 @@ static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
                  */
                 set_conf->conf1 |= BT_HIDP_PS5_VIBRATION_ATTENUATION_ENABLE;
                 /* tbd5[4] 会映射到蓝牙报文的 reduce_motor_power 字段。 */
-                set_conf->tbd5[4] = 0x00;
+                set_conf->tbd5[4] = 0x07;
                 set_conf->hf_motor_pwr = (fb_data->hf_pwr == 0xFF) ?
                     PS5_BINARY_HF_MOTOR_PWR : fb_data->hf_pwr;
                 set_conf->lf_motor_pwr = fb_data->lf_pwr;
@@ -415,7 +415,7 @@ static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
                 /* 停止震动时同样明确保持衰减等级为 0，避免残留默认状态。 */
                 set_conf->conf1 |= BT_HIDP_PS5_VIBRATION_ATTENUATION_ENABLE;
                 /* tbd5[4] 会映射到蓝牙报文的 reduce_motor_power 字段。 */
-                set_conf->tbd5[4] = 0x00;
+                set_conf->tbd5[4] = 0x07;
                 set_conf->hf_motor_pwr = 0x00;
                 set_conf->lf_motor_pwr = 0x00;
             }
