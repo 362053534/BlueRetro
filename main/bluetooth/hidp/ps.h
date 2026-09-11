@@ -52,7 +52,7 @@ struct bt_hidp_ps4_set_conf {
 #define BT_HIDP_PS5_HAPTICS_FLAG_LOW_PASS_FILTER 0x01   /* common p39 bit0：1=开 LPF */
 #define BT_HIDP_PS5_VIBRATION_ATTENUATION_ENABLE 0x40
 /* 最大衰减档数：8=7..0，6=5..0，0或1=仅 0。HID 低 3 位最多 7，超过 8 按 8。 */
-#define PS5_LF_ATTEN_GEARS 4
+#define PS5_LF_ATTEN_GEARS 6
 #if PS5_LF_ATTEN_GEARS <= 1
 #define PS5_LF_ATTEN_MAX 0
 #elif PS5_LF_ATTEN_GEARS >= 8
