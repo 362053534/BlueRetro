@@ -415,7 +415,7 @@ static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
                 set_conf->reduce_motor_power = (fb_data->hf_pwr != 0) ? 0 : ps5_lf_atten(fb_data->lf_pwr);
                 set_conf->hf_motor_pwr = (fb_data->hf_pwr == 0xFF) ?
                     PS5_BINARY_HF_MOTOR_PWR : fb_data->hf_pwr;
-                set_conf->lf_motor_pwr = fb_data->lf_pwr;
+                set_conf->lf_motor_pwr = 0x00; /* TEST ONLY: large motor OFF to isolate small (hf) motor; restore: fb_data->lf_pwr */
             }
             else {
                 /* Keep attenuation enabled on stop as well, so no controller default leaks through. */
