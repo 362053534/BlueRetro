@@ -410,8 +410,9 @@ static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
                 /* Enable DS5 vibration attenuation: reduce_motor_power low nibble = main-motor atten 0..7 (7 = weakest). */
                 /* Large (low-freq) motor keeps the raw PS2 magnitude. */
                 set_conf->valid_flag1 |= BT_HIDP_PS5_VIBRATION_ATTENUATION_ENABLE;
-                /* low nibble = large-motor atten step from ps5_lf_atten(); trigger (high) nibble stays 0 */
-                set_conf->reduce_motor_power = ps5_lf_atten(fb_data->lf_pwr);
+                /* Small (hf) motor active -> force atten 0 so it is never attenuated; only when the large
+                 * motor alone rumbles do we apply the 8-step dynamic atten. Trigger (high) nibble stays 0. */
+                set_conf->reduce_motor_power = (fb_data->hf_pwr != 0) ? 0 : ps5_lf_atten(fb_data->lf_pwr);
                 set_conf->hf_motor_pwr = (fb_data->hf_pwr == 0xFF) ?
                     PS5_BINARY_HF_MOTOR_PWR : fb_data->hf_pwr;
                 set_conf->lf_motor_pwr = fb_data->lf_pwr;
