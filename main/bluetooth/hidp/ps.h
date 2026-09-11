@@ -42,6 +42,8 @@ struct bt_hidp_ps4_set_conf {
 #define BT_HIDP_PS5_LED_PLAYER_CONTROL 0x10
 #define BT_HIDP_PS5_HAPTICS_SELECT 0x02
 #define BT_HIDP_PS5_RUMBLE_IMPROVED 0x04
+#define BT_HIDP_PS5_HAPTIC_LOW_PASS_FILTER_CONTROL 0x20 /* valid_flag1 bit5：允许改 haptic LPF */
+#define BT_HIDP_PS5_HAPTICS_FLAG_LOW_PASS_FILTER 0x01   /* common p39 bit0：1=开 LPF */
 #define BT_HIDP_PS5_VIBRATION_ATTENUATION_ENABLE 0x40
 
 /*
@@ -82,7 +84,8 @@ struct bt_hidp_ps5_bt_set_conf {
     uint8_t reduce_motor_power;      /* common p36 */
     uint8_t audio_control2;          /* common p37 */
     uint8_t valid_flag2;             /* common p38 */
-    uint8_t reserved3[2];            /* common p39-p40 */
+    uint8_t haptics_flags;           /* common p39：bit0 haptic LPF，1=开 */
+    uint8_t reserved3;               /* common p40 */
     uint8_t lightbar_setup;          /* common p41 */
     uint8_t led_brightness;          /* common p42 */
     uint8_t player_leds;             /* common p43 */
@@ -124,7 +127,8 @@ struct bt_hidp_ps5_set_conf {
     uint8_t reduce_motor_power;      /* common p36: bits0-2 rumble atten, bits4-6 trigger atten; needs valid_flag1 bit6 */
     uint8_t audio_control2;          /* common p37 */
     uint8_t valid_flag2;             /* common p38, 0x04 = improved rumble */
-    uint8_t reserved3[2];            /* common p39-p40 */
+    uint8_t haptics_flags;           /* common p39：bit0 haptic LPF，1=开 */
+    uint8_t reserved3;               /* common p40 */
     uint8_t lightbar_setup;          /* common p41 */
     uint8_t led_brightness;          /* common p42 */
     uint8_t player_leds;             /* common p43 */
@@ -147,6 +151,7 @@ _Static_assert(offsetof(struct bt_hidp_ps5_bt_set_conf, l2_tbd3) == 33, "");
 _Static_assert(offsetof(struct bt_hidp_ps5_bt_set_conf, reduce_motor_power) == 38, "");
 _Static_assert(offsetof(struct bt_hidp_ps5_bt_set_conf, audio_control2) == 39, "");
 _Static_assert(offsetof(struct bt_hidp_ps5_bt_set_conf, valid_flag2) == 40, "");
+_Static_assert(offsetof(struct bt_hidp_ps5_bt_set_conf, haptics_flags) == 41, "");
 _Static_assert(offsetof(struct bt_hidp_ps5_bt_set_conf, lightbar_setup) == 43, "");
 _Static_assert(offsetof(struct bt_hidp_ps5_bt_set_conf, player_leds) == 45, "");
 _Static_assert(offsetof(struct bt_hidp_ps5_bt_set_conf, rgb) == 46, "");
@@ -157,6 +162,7 @@ _Static_assert(offsetof(struct bt_hidp_ps5_set_conf, l2_tbd3) == 32, "");
 _Static_assert(offsetof(struct bt_hidp_ps5_set_conf, reduce_motor_power) == 37, "");
 _Static_assert(offsetof(struct bt_hidp_ps5_set_conf, audio_control2) == 38, "");
 _Static_assert(offsetof(struct bt_hidp_ps5_set_conf, valid_flag2) == 39, "");
+_Static_assert(offsetof(struct bt_hidp_ps5_set_conf, haptics_flags) == 40, "");
 _Static_assert(offsetof(struct bt_hidp_ps5_set_conf, lightbar_setup) == 42, "");
 _Static_assert(offsetof(struct bt_hidp_ps5_set_conf, player_leds) == 44, "");
 _Static_assert(offsetof(struct bt_hidp_ps5_set_conf, leds) == 45, "");

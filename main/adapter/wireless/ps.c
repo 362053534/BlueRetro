@@ -409,7 +409,10 @@ static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
             if (fb_data->state) {
                 /* Enable DS5 vibration attenuation: reduce_motor_power low nibble = main-motor atten 0..7 (7 = weakest). */
                 /* Large (low-freq) motor keeps the raw PS2 magnitude. */
-                set_conf->valid_flag1 |= BT_HIDP_PS5_VIBRATION_ATTENUATION_ENABLE;
+                /* 开/停都显式关 haptic LPF，防止固件默认滤波吃掉短脉冲。 */
+                set_conf->valid_flag1 |= BT_HIDP_PS5_VIBRATION_ATTENUATION_ENABLE
+                    | BT_HIDP_PS5_HAPTIC_LOW_PASS_FILTER_CONTROL;
+                set_conf->haptics_flags = 0;
                 /* Small (hf) motor active -> force atten 0 so it is never attenuated; only when the large
                  * motor alone rumbles do we apply the 8-step dynamic atten. Trigger (high) nibble stays 0. */
                 set_conf->reduce_motor_power = (fb_data->hf_pwr != 0) ? 0 : ps5_lf_atten(fb_data->lf_pwr);
@@ -419,7 +422,9 @@ static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
             }
             else {
                 /* Keep attenuation enabled on stop as well, so no controller default leaks through. */
-                set_conf->valid_flag1 |= BT_HIDP_PS5_VIBRATION_ATTENUATION_ENABLE;
+                set_conf->valid_flag1 |= BT_HIDP_PS5_VIBRATION_ATTENUATION_ENABLE
+                    | BT_HIDP_PS5_HAPTIC_LOW_PASS_FILTER_CONTROL;
+                set_conf->haptics_flags = 0;
                 /* low nibble = large-motor atten step from ps5_lf_atten(); trigger (high) nibble stays 0 */
                 set_conf->reduce_motor_power = ps5_lf_atten(fb_data->lf_pwr);
                 set_conf->hf_motor_pwr = 0x00;

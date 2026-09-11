@@ -130,7 +130,10 @@ static void bt_hid_ps5_init_callback(void *arg) {
         /* 只启用 Haptics Select，改进震动位与兼容震动位不再同时开启。 */
         set_conf->valid_flag0 = BT_HIDP_PS5_HAPTICS_SELECT;
         set_conf->valid_flag2 = BT_HIDP_PS5_RUMBLE_IMPROVED;
-        set_conf->valid_flag1 = BT_HIDP_PS5_LED_LIGHTBAR_CONTROL;
+        /* 显式关 haptic LPF：置 valid_flag1 bit5 允许改，p39 bit0=0 表示关闭。 */
+        set_conf->valid_flag1 = BT_HIDP_PS5_LED_LIGHTBAR_CONTROL
+            | BT_HIDP_PS5_HAPTIC_LOW_PASS_FILTER_CONTROL;
+        set_conf->haptics_flags = 0;
         set_conf->leds = 0; /* 默认熄灭灯条 */
         ps5_bt_output_seq[device->ids.id] = 0;
         bt_data->base.led_off_retry = PS5_LED_OFF_RETRY;
@@ -182,7 +185,8 @@ static void bt_hid_cmd_ps5_set_conf(struct bt_dev *device, void *report) {
     set_conf->reduce_motor_power = src->reduce_motor_power;
     set_conf->audio_control2 = src->audio_control2;
     set_conf->valid_flag2 = src->valid_flag2;
-    memcpy(set_conf->reserved3, src->reserved3, sizeof(set_conf->reserved3));
+    set_conf->haptics_flags = src->haptics_flags;
+    set_conf->reserved3 = src->reserved3;
     set_conf->lightbar_setup = src->lightbar_setup;
     set_conf->led_brightness = src->led_brightness;
     set_conf->player_leds = src->player_leds;
@@ -204,13 +208,17 @@ void bt_hid_ps5_clear_led(struct bt_dev *device) {
     clear.conf0 = 0x02;
     clear.valid_flag0 = BT_HIDP_PS5_HAPTICS_SELECT;
     clear.leds = 0;
+    /* 熄灯包也带上关 LPF，避免后续 valid 位不含 bit5 时固件不刷新滤波状态。 */
+    clear.haptics_flags = 0;
 
     /* 先释放旧的灯光控制，兼容需要 RELEASE_LEDS 的手柄固件。 */
-    clear.valid_flag1 = BT_HIDP_PS5_LED_RELEASE;
+    clear.valid_flag1 = BT_HIDP_PS5_LED_RELEASE
+        | BT_HIDP_PS5_HAPTIC_LOW_PASS_FILTER_CONTROL;
     bt_hid_cmd_ps5_set_conf(device, &clear);
 
     /* 再明确接管并关闭玩家灯和灯条，避免手柄恢复自己的玩家灯闪烁。 */
-    clear.valid_flag1 = BT_HIDP_PS5_LED_LIGHTBAR_CONTROL | BT_HIDP_PS5_LED_PLAYER_CONTROL;
+    clear.valid_flag1 = BT_HIDP_PS5_LED_LIGHTBAR_CONTROL | BT_HIDP_PS5_LED_PLAYER_CONTROL
+        | BT_HIDP_PS5_HAPTIC_LOW_PASS_FILTER_CONTROL;
     clear.player_leds = 0;
     bt_hid_cmd_ps5_set_conf(device, &clear);
 }
