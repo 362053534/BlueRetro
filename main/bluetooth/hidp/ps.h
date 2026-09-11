@@ -52,7 +52,11 @@ struct bt_hidp_ps4_set_conf {
 #define BT_HIDP_PS5_HAPTICS_FLAG_LOW_PASS_FILTER 0x01   /* common p39 bit0：1=开 LPF */
 #define BT_HIDP_PS5_VIBRATION_ATTENUATION_ENABLE 0x40
 /* 大电机衰减步长：作用区间 = 步长 * 8。0=全程不衰减，最大 32（满量程 8 档）。16 → lf 0..127 映射 7..0，>=128 保持 0。 */
-#define PS5_LF_ATTEN_STEP 32
+#define PS5_LF_ATTEN_STEP 16
+/* DS5 大电机死区：0-255，lf<=此值走额外衰减，外侧不含。可与 PS5_LF_ATTEN_STEP 对齐。0=仅 lf=0。 */
+#define PS5_LF_MOTOR_DEADZONE 15
+/* 死区额外衰减系数：0=无震；>0 为除数，越大越弱，商<1 则发 1。 */
+#define PS5_LF_DEADZONE_COEFF 0
 
 /* 1=v2 改进震动（惯性、软起停）；0=v1 经典（尖锐）。两者互斥，不要同时开。 */
 #define BT_HIDP_PS5_USE_RUMBLE_V2 0

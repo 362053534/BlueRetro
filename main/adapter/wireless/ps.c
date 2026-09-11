@@ -402,6 +402,18 @@ static inline uint8_t ps5_lf_atten(uint32_t lf) {
     return (uint8_t)(7 - lf / PS5_LF_ATTEN_STEP);
 }
 
+/* 死区外发原值；死区内系数 0 无震，>0 则 lf/系数，商<1 钳到 1。lf=0 仍视为没转。 */
+static inline uint8_t ps5_lf_apply_deadzone(uint8_t lf) {
+    if (lf > PS5_LF_MOTOR_DEADZONE) {
+        return lf;
+    }
+    if (lf == 0 || PS5_LF_DEADZONE_COEFF == 0) {
+        return 0;
+    }
+    lf /= PS5_LF_DEADZONE_COEFF;
+    return lf < 1 ? 1 : lf;
+}
+
 static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_data) {
     struct bt_hidp_ps5_set_conf *set_conf = (struct bt_hidp_ps5_set_conf *)bt_data->base.output;
 
@@ -410,11 +422,13 @@ static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
             if (fb_data->state) {
                 /* 打开 p36 衰减：低 3 位 0..7，7=最弱。高半字节扳机衰减保持 0。 */
                 set_conf->valid_flag1 |= BT_HIDP_PS5_VIBRATION_ATTENUATION_ENABLE;
+                /* 先过死区额外衰减，再拿有效力度算档位。 */
+                set_conf->lf_motor_pwr = ps5_lf_apply_deadzone(fb_data->lf_pwr);
                 /* 大电机在转就跟它的档；只有小电机时才不衰减。 */
-                set_conf->reduce_motor_power = fb_data->lf_pwr ? ps5_lf_atten(fb_data->lf_pwr) : 0;
+                set_conf->reduce_motor_power = set_conf->lf_motor_pwr ?
+                    ps5_lf_atten(set_conf->lf_motor_pwr) : 0;
                 set_conf->hf_motor_pwr = (fb_data->hf_pwr == 0xFF) ?
                     PS5_BINARY_HF_MOTOR_PWR : fb_data->hf_pwr;
-                set_conf->lf_motor_pwr = fb_data->lf_pwr;
             }
             else {
                 set_conf->valid_flag1 |= BT_HIDP_PS5_VIBRATION_ATTENUATION_ENABLE;
