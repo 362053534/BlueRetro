@@ -129,10 +129,7 @@ static void bt_hid_ps5_init_callback(void *arg) {
         /* 震动模式由 BT_HIDP_PS5_USE_RUMBLE_V2 选择，v1/v2 互斥。 */
         set_conf->valid_flag0 = BT_HIDP_PS5_VALID_FLAG0_RUMBLE;
         set_conf->valid_flag2 = BT_HIDP_PS5_VALID_FLAG2_RUMBLE;
-        /* 显式关 haptic LPF：置 valid_flag1 bit5 允许改，p39 bit0=0 表示关闭。 */
-        set_conf->valid_flag1 = BT_HIDP_PS5_LED_LIGHTBAR_CONTROL
-            | BT_HIDP_PS5_HAPTIC_LOW_PASS_FILTER_CONTROL;
-        set_conf->haptics_flags = 0;
+        set_conf->valid_flag1 = BT_HIDP_PS5_LED_LIGHTBAR_CONTROL;
         set_conf->leds = 0; /* 默认熄灭灯条 */
         ps5_bt_output_seq[device->ids.id] = 0;
         bt_data->base.led_off_retry = PS5_LED_OFF_RETRY;
@@ -221,20 +218,16 @@ void bt_hid_ps5_clear_led(struct bt_dev *device) {
     clear.conf0 = 0x02;
     clear.valid_flag0 = BT_HIDP_PS5_VALID_FLAG0_RUMBLE;
     clear.leds = 0;
-    /* 熄灯包也带上关 LPF，避免后续 valid 位不含 bit5 时固件不刷新滤波状态。 */
-    clear.haptics_flags = 0;
 
     /* 先 RELEASE，并按 Linux 做一次 LIGHT_OUT，从无线固件收回灯控。 */
-    clear.valid_flag1 = BT_HIDP_PS5_LED_RELEASE
-        | BT_HIDP_PS5_HAPTIC_LOW_PASS_FILTER_CONTROL;
+    clear.valid_flag1 = BT_HIDP_PS5_LED_RELEASE;
     clear.valid_flag2 = BT_HIDP_PS5_VALID_FLAG2_RUMBLE
         | BT_HIDP_PS5_LIGHTBAR_SETUP_CONTROL;
     clear.lightbar_setup = BT_HIDP_PS5_LIGHTBAR_SETUP_LIGHT_OUT;
     bt_hid_cmd_ps5_set_conf(device, &clear);
 
     /* 再明确接管并立即关闭玩家灯和灯条。 */
-    clear.valid_flag1 = BT_HIDP_PS5_LED_LIGHTBAR_CONTROL | BT_HIDP_PS5_LED_PLAYER_CONTROL
-        | BT_HIDP_PS5_HAPTIC_LOW_PASS_FILTER_CONTROL;
+    clear.valid_flag1 = BT_HIDP_PS5_LED_LIGHTBAR_CONTROL | BT_HIDP_PS5_LED_PLAYER_CONTROL;
     clear.valid_flag2 = BT_HIDP_PS5_VALID_FLAG2_RUMBLE;
     clear.lightbar_setup = 0;
     clear.player_leds = BT_HIDP_PS5_PLAYER_LED_INSTANT;
