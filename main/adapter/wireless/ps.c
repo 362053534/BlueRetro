@@ -394,12 +394,13 @@ static void ps4_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
     }
 }
 
-/* Large (low-freq) motor magnitude -> attenuation step, one step every 8 counts:
- * weak -> strongest (7); reaches 0 at lf=56 and is clamped at 0 across 56..255 (no unsigned underflow). */
+/* 大电机力度 -> 衰减档：每 8 点一档，弱->最强(7)；lf>=56 钳到 0。测试固定档时不用。 */
+#if PS5_RUMBLE_ATTEN_FIXED < 0
 static inline uint8_t ps5_lf_atten(uint32_t lf) {
     uint32_t step = lf >> 3;
     return step >= 7 ? 0 : (uint8_t)(7 - step);
 }
+#endif
 
 static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_data) {
     struct bt_hidp_ps5_set_conf *set_conf = (struct bt_hidp_ps5_set_conf *)bt_data->base.output;
@@ -407,21 +408,26 @@ static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
     switch (fb_data->type) {
         case FB_TYPE_RUMBLE:
             if (fb_data->state) {
-                /* Enable DS5 vibration attenuation: reduce_motor_power low nibble = main-motor atten 0..7 (7 = weakest). */
-                /* Large (low-freq) motor keeps the raw PS2 magnitude. */
+                /* 打开 p36 衰减：低 3 位 0..7，7=最弱。高半字节扳机衰减保持 0。 */
                 set_conf->valid_flag1 |= BT_HIDP_PS5_VIBRATION_ATTENUATION_ENABLE;
-                /* Small (hf) motor active -> force atten 0 so it is never attenuated; only when the large
-                 * motor alone rumbles do we apply the 8-step dynamic atten. Trigger (high) nibble stays 0. */
+#if PS5_RUMBLE_ATTEN_FIXED >= 0
+                /* 测试：固定衰减档，小电机开着也不清 0，否则测不出有没有生效。 */
+                set_conf->reduce_motor_power = PS5_RUMBLE_ATTEN_FIXED;
+#else
+                /* 小电机开则不衰减；仅大电机时按力度动态衰减。 */
                 set_conf->reduce_motor_power = (fb_data->hf_pwr != 0) ? 0 : ps5_lf_atten(fb_data->lf_pwr);
+#endif
                 set_conf->hf_motor_pwr = (fb_data->hf_pwr == 0xFF) ?
                     PS5_BINARY_HF_MOTOR_PWR : fb_data->hf_pwr;
                 set_conf->lf_motor_pwr = fb_data->lf_pwr;
             }
             else {
-                /* Keep attenuation enabled on stop as well, so no controller default leaks through. */
                 set_conf->valid_flag1 |= BT_HIDP_PS5_VIBRATION_ATTENUATION_ENABLE;
-                /* low nibble = large-motor atten step from ps5_lf_atten(); trigger (high) nibble stays 0 */
+#if PS5_RUMBLE_ATTEN_FIXED >= 0
+                set_conf->reduce_motor_power = PS5_RUMBLE_ATTEN_FIXED;
+#else
                 set_conf->reduce_motor_power = ps5_lf_atten(fb_data->lf_pwr);
+#endif
                 set_conf->hf_motor_pwr = 0x00;
                 set_conf->lf_motor_pwr = 0x00;
             }
