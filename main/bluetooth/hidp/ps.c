@@ -251,7 +251,8 @@ void bt_hid_ps_init(struct bt_dev *device) {
     struct bt_hidp_ps4_set_conf *set_conf = (struct bt_hidp_ps4_set_conf *)bt_data->base.output;
 
     /* Init output data for Rumble/LED feedback */
-    set_conf->conf0 = 0xc4;
+    /* DS4：高2位 0xc0=HID+CRC，低6位=上报间隔。0xc1=1ms（单手柄）。 */
+    set_conf->conf0 = 0xc1;
     set_conf->conf1 = 0x03;
     /* 连上后灯条默认熄灭，最低电量再红闪 */
     set_conf->leds = 0;
@@ -272,7 +273,7 @@ void bt_hid_ps_init(struct bt_dev *device) {
                 .name = "ps5_init_timer"
             };
             struct bt_hidp_ps4_set_conf ps4_set_conf = {
-                .conf0 = 0xc0,
+                .conf0 = 0xc1, /* 与持久缓冲一致，避免随后 rumble/LED 打回 4ms */
                 .conf1 = 0x03,
             };
             ps4_set_conf.leds = 0; /* 默认熄灭灯条 */
