@@ -354,10 +354,11 @@ static void bt_fb_task(void *param) {
                 if (atomic_test_bit(&device->flags, BT_DEV_HID_INIT_DONE)) {
                     struct bt_data *bt_data = &bt_adapter.data[device->ids.id];
 
-                    /* DS5 连上后空闲补发 RELEASE+熄灯；震动期间不发，免得打断马达 */
+                    /* DS5：动画结束后才 RELEASE；震动期间不发，免得打断马达 */
                     if (!rumble_on &&
                             device->ids.subtype == BT_PS5_DS &&
-                            bt_data->base.led_off_retry) {
+                            bt_data->base.led_off_retry &&
+                            bt_hid_ps5_led_ready(bt_data)) {
                         bt_hid_ps5_clear_led(device);
                         bt_data->base.led_off_retry--;
                     }

@@ -12,7 +12,6 @@
 #include "bluetooth/host.h"
 #include "ps.h"
 
-#define PS5_LED_OFF_RETRY 8
 #define PS5_BT_OUTPUT_TAG 0x10
 
 static uint8_t ps5_bt_output_seq[BT_MAX_DEV];
@@ -140,8 +139,7 @@ static void bt_hid_ps5_init_callback(void *arg) {
 
         printf("# %s\n", __FUNCTION__);
 
-        /* 此时手柄多半还没进 0x31，包可能被丢，后面靠 led_off_retry 补发 */
-        bt_hid_ps5_clear_led(device);
+        /* 不在 init 扫射 RELEASE。等 0x31 后再按时间戳接管。 */
         bt_hid_cmd_ps5_set_conf(device, (void *)set_conf);
 
         /* Set trigger "click" haptic effect when rumble is on */
@@ -199,28 +197,47 @@ static void bt_hid_cmd_ps5_set_conf(struct bt_dev *device, void *report) {
     bt_hid_cmd(device->acl_handle, device->intr_chan.dcid, BT_HIDP_DATA_OUT, BT_HIDP_PS5_SET_CONF, sizeof(*set_conf));
 }
 
+int bt_hid_ps5_led_ready(struct bt_data *bt_data) {
+    uint32_t start = bt_data->base.led_anim_start_us;
+
+    /* 未见 0x31，或距首包不足 4s。 */
+    if (!start) {
+        return 0;
+    }
+    return ((uint32_t)esp_timer_get_time() - start) >= PS5_LED_ANIM_WAIT_US;
+}
+
 void bt_hid_ps5_clear_led(struct bt_dev *device) {
     struct bt_data *bt_data = &bt_adapter.data[device->ids.id];
     struct bt_hidp_ps5_set_conf *out =
         (struct bt_hidp_ps5_set_conf *)bt_data->base.output;
     struct bt_hidp_ps5_set_conf clear = *out;
 
+    /* pair 动画未结束时 RELEASE 无效，甚至会卡在快闪。 */
+    if (!bt_hid_ps5_led_ready(bt_data)) {
+        return;
+    }
+
     clear.conf0 = 0x02;
     clear.valid_flag0 = BT_HIDP_PS5_VALID_FLAG0_RUMBLE;
-    clear.valid_flag2 = BT_HIDP_PS5_VALID_FLAG2_RUMBLE;
     clear.leds = 0;
     /* 熄灯包也带上关 LPF，避免后续 valid 位不含 bit5 时固件不刷新滤波状态。 */
     clear.haptics_flags = 0;
 
-    /* 先释放旧的灯光控制，兼容需要 RELEASE_LEDS 的手柄固件。 */
+    /* 先 RELEASE，并按 Linux 做一次 LIGHT_OUT，从无线固件收回灯控。 */
     clear.valid_flag1 = BT_HIDP_PS5_LED_RELEASE
         | BT_HIDP_PS5_HAPTIC_LOW_PASS_FILTER_CONTROL;
+    clear.valid_flag2 = BT_HIDP_PS5_VALID_FLAG2_RUMBLE
+        | BT_HIDP_PS5_LIGHTBAR_SETUP_CONTROL;
+    clear.lightbar_setup = BT_HIDP_PS5_LIGHTBAR_SETUP_LIGHT_OUT;
     bt_hid_cmd_ps5_set_conf(device, &clear);
 
-    /* 再明确接管并关闭玩家灯和灯条，避免手柄恢复自己的玩家灯闪烁。 */
+    /* 再明确接管并立即关闭玩家灯和灯条。 */
     clear.valid_flag1 = BT_HIDP_PS5_LED_LIGHTBAR_CONTROL | BT_HIDP_PS5_LED_PLAYER_CONTROL
         | BT_HIDP_PS5_HAPTIC_LOW_PASS_FILTER_CONTROL;
-    clear.player_leds = 0;
+    clear.valid_flag2 = BT_HIDP_PS5_VALID_FLAG2_RUMBLE;
+    clear.lightbar_setup = 0;
+    clear.player_leds = BT_HIDP_PS5_PLAYER_LED_INSTANT;
     bt_hid_cmd_ps5_set_conf(device, &clear);
 }
 
@@ -301,10 +318,17 @@ void bt_hid_ps_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, ui
                     break;
                 case BT_HIDP_PS5_STATUS:
                     if (device->ids.report_type != BT_HIDP_PS5_STATUS) {
+                        struct bt_data_base *base = &bt_adapter.data[device->ids.id].base;
+
                         bt_type_update(device->ids.id, BT_PS, BT_PS5_DS);
                         device->ids.report_type = BT_HIDP_PS5_STATUS;
-                        /* 这时才真正吃输出包，补发熄灯 */
-                        bt_adapter.data[device->ids.id].base.led_off_retry = PS5_LED_OFF_RETRY;
+                        /* 首包 0x31：记下时刻，4s 后再 RELEASE。 */
+                        base->led_off_retry = PS5_LED_OFF_RETRY;
+                        if (!base->led_anim_start_us) {
+                            uint32_t now = (uint32_t)esp_timer_get_time();
+
+                            base->led_anim_start_us = now ? now : 1;
+                        }
                     }
                     bt_host_bridge(device, bt_hci_acl_pkt->hidp_hdr.protocol, bt_hci_acl_pkt->hidp_data, hidp_data_len);
                     break;

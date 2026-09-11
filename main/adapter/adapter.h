@@ -525,6 +525,8 @@ struct bt_data_base {
     uint8_t batt_ds5_on;
     /* DS5 进入 0x31 前熄灯包常被丢，连上后补发几次 RELEASE */
     uint8_t led_off_retry;
+    /* 0=未见 0x31；非 0=首包 0x31 时的 esp_timer_get_time() 低 32 位 */
+    uint32_t led_anim_start_us;
 };
 
 struct bt_data {

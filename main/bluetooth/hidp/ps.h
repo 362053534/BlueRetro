@@ -40,6 +40,11 @@ struct bt_hidp_ps4_set_conf {
 #define BT_HIDP_PS5_LED_LIGHTBAR_CONTROL 0x04
 #define BT_HIDP_PS5_LED_RELEASE 0x08
 #define BT_HIDP_PS5_LED_PLAYER_CONTROL 0x10
+#define BT_HIDP_PS5_LIGHTBAR_SETUP_CONTROL 0x02 /* valid_flag2 bit1：允许改 lightbar_setup */
+#define BT_HIDP_PS5_LIGHTBAR_SETUP_LIGHT_OUT 0x02 /* lightbar_setup bit1：灯条淡出 */
+#define BT_HIDP_PS5_PLAYER_LED_INSTANT 0x20 /* player_leds bit5：立即生效，不淡出 */
+#define PS5_LED_OFF_RETRY 8
+#define PS5_LED_ANIM_WAIT_US 4000000 /* 首包 0x31 起 4s，略长于 SDL 10200000/3≈3.4s */
 #define BT_HIDP_PS5_COMPATIBLE_VIBRATION 0x01 /* valid_flag0 bit0：v1 兼容震动 */
 #define BT_HIDP_PS5_HAPTICS_SELECT 0x02
 #define BT_HIDP_PS5_RUMBLE_IMPROVED 0x04
@@ -150,6 +155,7 @@ struct bt_hidp_ps5_set_conf {
 
 void bt_hid_cmd_ps_set_conf(struct bt_dev *device, void *report);
 void bt_hid_ps5_clear_led(struct bt_dev *device);
+int bt_hid_ps5_led_ready(struct bt_data *bt_data);
 void bt_hid_ps_init(struct bt_dev *device);
 void bt_hid_ps_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, uint32_t len);
 
