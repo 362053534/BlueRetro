@@ -51,8 +51,8 @@ struct bt_hidp_ps4_set_conf {
 #define BT_HIDP_PS5_HAPTIC_LOW_PASS_FILTER_CONTROL 0x20 /* valid_flag1 bit5：允许改 haptic LPF */
 #define BT_HIDP_PS5_HAPTICS_FLAG_LOW_PASS_FILTER 0x01   /* common p39 bit0：1=开 LPF */
 #define BT_HIDP_PS5_VIBRATION_ATTENUATION_ENABLE 0x40
-/* 衰减测试档：7=最高衰减（最弱震感），0=不衰减。<0 则走动态档，小电机开时强制 0。 */
-#define PS5_RUMBLE_ATTEN_FIXED 7
+/* 大电机衰减步长：作用区间 = 步长 * 8。0=全程不衰减，最大 32（满量程 8 档）。16 → lf 0..127 映射 7..0，>=128 保持 0。 */
+#define PS5_LF_ATTEN_STEP 32
 
 /* 1=v2 改进震动（惯性、软起停）；0=v1 经典（尖锐）。两者互斥，不要同时开。 */
 #define BT_HIDP_PS5_USE_RUMBLE_V2 0
