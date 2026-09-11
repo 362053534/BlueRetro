@@ -410,8 +410,8 @@ static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
             if (fb_data->state) {
                 /* 打开 p36 衰减：低 3 位 0..7，7=最弱。高半字节扳机衰减保持 0。 */
                 set_conf->valid_flag1 |= BT_HIDP_PS5_VIBRATION_ATTENUATION_ENABLE;
-                /* 小电机开则不衰减；仅大电机时按力度动态衰减。 */
-                set_conf->reduce_motor_power = (fb_data->hf_pwr != 0) ? 0 : ps5_lf_atten(fb_data->lf_pwr);
+                /* 大电机在转就跟它的档；只有小电机时才不衰减。 */
+                set_conf->reduce_motor_power = fb_data->lf_pwr ? ps5_lf_atten(fb_data->lf_pwr) : 0;
                 set_conf->hf_motor_pwr = (fb_data->hf_pwr == 0xFF) ?
                     PS5_BINARY_HF_MOTOR_PWR : fb_data->hf_pwr;
                 set_conf->lf_motor_pwr = fb_data->lf_pwr;
