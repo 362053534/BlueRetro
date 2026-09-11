@@ -394,12 +394,12 @@ static void ps4_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
     }
 }
 
-/* 大电机力度 -> 衰减档。lf>=步长*8 则为 0。步长 0 时比较恒成立，自然不衰减。 */
+/* 大电机力度 -> 衰减档。lf>=步长*(最高档+1) 则为 0。档数<=1 或步长 0 时自然为 0。 */
 static inline uint8_t ps5_lf_atten(uint32_t lf) {
-    if (lf >= PS5_LF_ATTEN_STEP * 8) {
+    if (PS5_LF_ATTEN_MAX == 0 || lf >= PS5_LF_ATTEN_STEP * (PS5_LF_ATTEN_MAX + 1u)) {
         return 0;
     }
-    return (uint8_t)(7 - lf / PS5_LF_ATTEN_STEP);
+    return (uint8_t)(PS5_LF_ATTEN_MAX - lf / PS5_LF_ATTEN_STEP);
 }
 
 /* 死区外发原值；死区内系数 0 无震，>0 则 lf/系数，商<1 钳到 1。lf=0 仍视为没转。 */
@@ -414,13 +414,13 @@ static inline uint8_t ps5_lf_apply_deadzone(uint8_t lf) {
     return lf < 1 ? 1 : lf;
 }
 
-/* 死区内固定 7 档；7→0 从死区外第一点起算。马达为 0 则不衰减。 */
+/* 死区内用独立档；最高档→0 从死区外第一点起算。马达为 0 则不衰减。 */
 static inline uint8_t ps5_lf_gear(uint8_t lf, uint8_t motor) {
     if (motor == 0) {
         return 0;
     }
     if (lf <= PS5_LF_MOTOR_DEADZONE) {
-        return 7;
+        return PS5_LF_DEADZONE_GEAR;
     }
     return ps5_lf_atten((uint32_t)lf - PS5_LF_MOTOR_DEADZONE - 1);
 }
