@@ -40,6 +40,7 @@ struct bt_hidp_ps4_set_conf {
 #define BT_HIDP_PS5_LED_LIGHTBAR_CONTROL 0x04
 #define BT_HIDP_PS5_LED_RELEASE 0x08
 #define BT_HIDP_PS5_LED_PLAYER_CONTROL 0x10
+#define BT_HIDP_PS5_COMPATIBLE_VIBRATION 0x01 /* valid_flag0 bit0: enable right/hf motor (aka RumbleRight) */
 #define BT_HIDP_PS5_HAPTICS_SELECT 0x02
 #define BT_HIDP_PS5_RUMBLE_IMPROVED 0x04
 #define BT_HIDP_PS5_VIBRATION_ATTENUATION_ENABLE 0x40

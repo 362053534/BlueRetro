@@ -127,8 +127,8 @@ static void bt_hid_ps5_init_callback(void *arg) {
         /* Init output data for Rumble/LED feedback */
         memset(set_conf, 0x00, sizeof(*set_conf));
         set_conf->conf0 = 0x02;
-        /* 只启用 Haptics Select，改进震动位与兼容震动位不再同时开启。 */
-        set_conf->valid_flag0 = BT_HIDP_PS5_HAPTICS_SELECT;
+        /* Enable both motors: bit1 HAPTICS_SELECT (left/large) | bit0 COMPATIBLE_VIBRATION (right/small) = 0x03; v2 improved-rumble kept in valid_flag2. */
+        set_conf->valid_flag0 = BT_HIDP_PS5_HAPTICS_SELECT | BT_HIDP_PS5_COMPATIBLE_VIBRATION;
         set_conf->valid_flag2 = BT_HIDP_PS5_RUMBLE_IMPROVED;
         set_conf->valid_flag1 = BT_HIDP_PS5_LED_LIGHTBAR_CONTROL;
         set_conf->leds = 0; /* 默认熄灭灯条 */
@@ -202,7 +202,7 @@ void bt_hid_ps5_clear_led(struct bt_dev *device) {
     struct bt_hidp_ps5_set_conf clear = *out;
 
     clear.conf0 = 0x02;
-    clear.valid_flag0 = BT_HIDP_PS5_HAPTICS_SELECT;
+    clear.valid_flag0 = BT_HIDP_PS5_HAPTICS_SELECT | BT_HIDP_PS5_COMPATIBLE_VIBRATION;
     clear.leds = 0;
 
     /* 先释放旧的灯光控制，兼容需要 RELEASE_LEDS 的手柄固件。 */
