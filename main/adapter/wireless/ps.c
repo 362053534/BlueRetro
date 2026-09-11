@@ -414,6 +414,17 @@ static inline uint8_t ps5_lf_apply_deadzone(uint8_t lf) {
     return lf < 1 ? 1 : lf;
 }
 
+/* 死区内固定 7 档；7→0 从死区外第一点起算。马达为 0 则不衰减。 */
+static inline uint8_t ps5_lf_gear(uint8_t lf, uint8_t motor) {
+    if (motor == 0) {
+        return 0;
+    }
+    if (lf <= PS5_LF_MOTOR_DEADZONE) {
+        return 7;
+    }
+    return ps5_lf_atten((uint32_t)lf - PS5_LF_MOTOR_DEADZONE - 1);
+}
+
 static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_data) {
     struct bt_hidp_ps5_set_conf *set_conf = (struct bt_hidp_ps5_set_conf *)bt_data->base.output;
 
@@ -422,11 +433,10 @@ static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
             if (fb_data->state) {
                 /* 打开 p36 衰减：低 3 位 0..7，7=最弱。高半字节扳机衰减保持 0。 */
                 set_conf->valid_flag1 |= BT_HIDP_PS5_VIBRATION_ATTENUATION_ENABLE;
-                /* 先过死区额外衰减，再拿有效力度算档位。 */
+                /* 先过死区额外衰减；档位按原 lf 划分，避免被除完的马达值带偏。 */
                 set_conf->lf_motor_pwr = ps5_lf_apply_deadzone(fb_data->lf_pwr);
                 /* 大电机在转就跟它的档；只有小电机时才不衰减。 */
-                set_conf->reduce_motor_power = set_conf->lf_motor_pwr ?
-                    ps5_lf_atten(set_conf->lf_motor_pwr) : 0;
+                set_conf->reduce_motor_power = ps5_lf_gear(fb_data->lf_pwr, set_conf->lf_motor_pwr);
                 set_conf->hf_motor_pwr = (fb_data->hf_pwr == 0xFF) ?
                     PS5_BINARY_HF_MOTOR_PWR : fb_data->hf_pwr;
             }
