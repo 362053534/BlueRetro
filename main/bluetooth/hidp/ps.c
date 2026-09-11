@@ -127,9 +127,9 @@ static void bt_hid_ps5_init_callback(void *arg) {
         /* Init output data for Rumble/LED feedback */
         memset(set_conf, 0x00, sizeof(*set_conf));
         set_conf->conf0 = 0x02;
-        /* 只启用 Haptics Select，改进震动位与兼容震动位不再同时开启。 */
-        set_conf->valid_flag0 = BT_HIDP_PS5_HAPTICS_SELECT;
-        set_conf->valid_flag2 = BT_HIDP_PS5_RUMBLE_IMPROVED;
+        /* 震动模式由 BT_HIDP_PS5_USE_RUMBLE_V2 选择，v1/v2 互斥。 */
+        set_conf->valid_flag0 = BT_HIDP_PS5_VALID_FLAG0_RUMBLE;
+        set_conf->valid_flag2 = BT_HIDP_PS5_VALID_FLAG2_RUMBLE;
         /* 显式关 haptic LPF：置 valid_flag1 bit5 允许改，p39 bit0=0 表示关闭。 */
         set_conf->valid_flag1 = BT_HIDP_PS5_LED_LIGHTBAR_CONTROL
             | BT_HIDP_PS5_HAPTIC_LOW_PASS_FILTER_CONTROL;
@@ -206,7 +206,8 @@ void bt_hid_ps5_clear_led(struct bt_dev *device) {
     struct bt_hidp_ps5_set_conf clear = *out;
 
     clear.conf0 = 0x02;
-    clear.valid_flag0 = BT_HIDP_PS5_HAPTICS_SELECT;
+    clear.valid_flag0 = BT_HIDP_PS5_VALID_FLAG0_RUMBLE;
+    clear.valid_flag2 = BT_HIDP_PS5_VALID_FLAG2_RUMBLE;
     clear.leds = 0;
     /* 熄灯包也带上关 LPF，避免后续 valid 位不含 bit5 时固件不刷新滤波状态。 */
     clear.haptics_flags = 0;
