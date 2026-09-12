@@ -52,7 +52,7 @@ struct bt_hidp_ps4_set_conf {
 #define BT_HIDP_PS5_HAPTICS_FLAG_LOW_PASS_FILTER 0x01   /* common p39 bit0：1=开 LPF */
 #define BT_HIDP_PS5_VIBRATION_ATTENUATION_ENABLE 0x40
 /* 最大衰减档数：8=7..0，6=5..0，0或1=仅 0。HID 低 3 位最多 7，超过 8 按 8。 */
-#define PS5_LF_ATTEN_GEARS 6
+#define PS5_LF_ATTEN_GEARS 0
 #if PS5_LF_ATTEN_GEARS <= 1
 #define PS5_LF_ATTEN_MAX 0
 #elif PS5_LF_ATTEN_GEARS >= 8
@@ -68,6 +68,8 @@ struct bt_hidp_ps4_set_conf {
 #define PS5_LF_DEADZONE_GEAR 7
 /* 死区额外衰减系数：0=无震；>0 为除数，越大越弱，商<1 则发 1。 */
 #define PS5_LF_DEADZONE_COEFF 31
+/* 1=允许小电机；0=临时关掉，只测大电机。 */
+#define PS5_HF_MOTOR_ENABLE 0
 
 /* 1=v2 改进震动（惯性、软起停）；0=v1 经典（尖锐）。两者互斥，不要同时开。 */
 #define BT_HIDP_PS5_USE_RUMBLE_V2 0

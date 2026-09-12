@@ -437,8 +437,9 @@ static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
                 set_conf->lf_motor_pwr = ps5_lf_apply_deadzone(fb_data->lf_pwr);
                 /* 大电机在转就跟它的档；只有小电机时才不衰减。 */
                 set_conf->reduce_motor_power = ps5_lf_gear(fb_data->lf_pwr, set_conf->lf_motor_pwr);
-                set_conf->hf_motor_pwr = (fb_data->hf_pwr == 0xFF) ?
-                    PS5_BINARY_HF_MOTOR_PWR : fb_data->hf_pwr;
+                set_conf->hf_motor_pwr = PS5_HF_MOTOR_ENABLE ?
+                    ((fb_data->hf_pwr == 0xFF) ?
+                        PS5_BINARY_HF_MOTOR_PWR : fb_data->hf_pwr) : 0;
             }
             else {
                 set_conf->valid_flag1 |= BT_HIDP_PS5_VIBRATION_ATTENUATION_ENABLE;
