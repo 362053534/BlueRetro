@@ -252,7 +252,7 @@ void bt_hid_sw2_init(struct bt_dev *device) {
 
     bt_hid_sw2_exec_next_state(device);
 
-    atomic_set_bit(&device->flags, BT_DEV_HID_INIT_DONE);
+    bt_host_hid_init_done(device);
 }
 
 void bt_hid_sw2_hdlr(struct bt_dev *device, uint16_t att_handle, uint8_t *data, uint32_t len) {

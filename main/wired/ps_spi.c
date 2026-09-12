@@ -188,6 +188,18 @@ static uint32_t get_dtr_state(uint32_t port) {
     return 0;
 }
 
+/* 该物理口是否有已完成 HID 的蓝牙手柄。多插：任一槽在线则整口应答。 */
+static inline uint32_t ps_port_bt_online(struct ps_ctrl_port *port) {
+    uint32_t n = (port->root_dev_type == DEV_PSX_MULTITAP) ? MT_PORT_MAX : 1;
+
+    for (uint32_t j = 0; j < n; j++) {
+        if (atomic_test_bit(&wired_adapter.data[port->mt_first_port + j].flags, WIRED_BT_ONLINE)) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 static void set_output_state(uint32_t port, uint32_t enable) {
     if (port == 0) {
         if (enable) {
@@ -626,6 +638,12 @@ static void spi_isr(void* arg) {
         if (port->idx == 0) {
             port->tx_buf_len = 3 + 6;
             if (port->rx_buf[port->active_rx_buf][0] == 0x01) {
+                /* 无蓝牙手柄则不 ACK，PS2 当空口（协议热插拔）。 */
+                if (!ps_port_bt_online(port)) {
+                    port->valid = 0;
+                    port->spi_hw->slave.trans_inten = 0;
+                    goto early_end;
+                }
                 set_output_state(port->id, 1);
                 port->valid = 1;
                 if (port->root_dev_type == DEV_PSX_MULTITAP && port->mt_state) {

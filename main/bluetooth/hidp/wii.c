@@ -144,7 +144,7 @@ void bt_hid_wii_init(struct bt_dev *device) {
     bt_hid_cmd_wii_set_feedback(device, (void *)&wii_conf);
     bt_hid_cmd_wii_set_rep_mode(device, (void *)&wii_rep_conf);
 
-    atomic_set_bit(&device->flags, BT_DEV_HID_INIT_DONE);
+    bt_host_hid_init_done(device);
 }
 
 void bt_hid_wii_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, uint32_t len) {

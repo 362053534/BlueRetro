@@ -35,7 +35,7 @@ void bt_hid_xbox_init(struct bt_dev *device) {
         bt_type_update(device->ids.id, BT_XBOX, BT_XBOX_XS);
     }
 
-    atomic_set_bit(&device->flags, BT_DEV_HID_INIT_DONE);
+    bt_host_hid_init_done(device);
 }
 
 void bt_hid_xbox_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, uint32_t len) {

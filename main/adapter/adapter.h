@@ -329,6 +329,7 @@ enum {
     WIRED_WAITING_FOR_RELEASE2,
     WIRED_GPIO_INIT,
     WIRED_KBMON_INIT,
+    WIRED_BT_ONLINE, /* 已有完成 HID 的蓝牙手柄映射到此有线口 */
 };
 
 /* Dev mode */

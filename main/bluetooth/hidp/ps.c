@@ -149,7 +149,7 @@ static void bt_hid_ps5_init_callback(void *arg) {
     esp_timer_delete(device->timer_hdl);
     device->timer_hdl = NULL;
 
-    atomic_set_bit(&device->flags, BT_DEV_HID_INIT_DONE);
+    bt_host_hid_init_done(device);
     printf("# PS init done\n");
 }
 

@@ -151,6 +151,14 @@ int32_t bt_host_get_dev_from_out_idx(uint8_t out_idx, struct bt_dev **device);
 int32_t bt_host_get_active_dev_from_out_idx(uint8_t out_idx, struct bt_dev **device);
 int32_t bt_host_get_dev_conf(struct bt_dev **device);
 void bt_host_reset_dev(struct bt_dev *device);
+/* 手柄 HID 就绪：置位同时让对应有线口对主机可见。 */
+static inline void bt_host_hid_init_done(struct bt_dev *device) {
+    atomic_set_bit(&device->flags, BT_DEV_HID_INIT_DONE);
+    if (device->ids.out_idx < WIRED_MAX_DEV) {
+        atomic_set_bit(&wired_adapter.data[device->ids.out_idx].flags, WIRED_BT_ONLINE);
+    }
+}
+
 void bt_host_q_wait_pkt(uint32_t ms);
 int32_t bt_host_init(void);
 int32_t bt_host_txq_add(uint8_t *packet, uint32_t packet_len);

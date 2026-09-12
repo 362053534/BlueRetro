@@ -672,6 +672,10 @@ reset_dev:
     memset(bt_adapter.data[dev_id].raw_src_mappings, 0, sizeof(*bt_adapter.data[0].raw_src_mappings) * REPORT_MAX);
     memset(bt_adapter.data[dev_id].reports, 0, sizeof(*bt_adapter.data[0].reports) * REPORT_MAX);
     memset(&bt_adapter.data[dev_id].base, 0, sizeof(bt_adapter.data[0].base));
+    if (device->ids.out_idx < WIRED_MAX_DEV) {
+        /* 蓝牙断开后该有线口对主机变为空口。 */
+        atomic_clear_bit(&wired_adapter.data[device->ids.out_idx].flags, WIRED_BT_ONLINE);
+    }
     memset(device, 0, sizeof(*device));
 
     device->ids.id = dev_id;

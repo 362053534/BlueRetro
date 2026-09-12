@@ -25,7 +25,7 @@ void bt_hid_cmd_generic_rumble(struct bt_dev *device, void *report) {
 }
 
 void bt_hid_generic_init(struct bt_dev *device) {
-    atomic_set_bit(&device->flags, BT_DEV_HID_INIT_DONE);
+    bt_host_hid_init_done(device);
 }
 
 void bt_hid_generic_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, uint32_t len) {

@@ -38,7 +38,7 @@ static void bt_hid_ps3_init_callback(void *arg) {
     device->timer_hdl = NULL;
     bt_hid_cmd_ps3_set_conf(device, bt_data->base.output);
 
-    atomic_set_bit(&device->flags, BT_DEV_HID_INIT_DONE);
+    bt_host_hid_init_done(device);
 }
 
 void bt_hid_cmd_ps3_set_conf(struct bt_dev *device, void *report) {
