@@ -27,8 +27,12 @@
 #include "system/led.h"
 #include "bare_metal_app_cpu.h"
 #include "manager.h"
+#include "esp_ota_ops.h"
+#include "esp_partition.h"
 
 #define BOOT_BTN_PIN 0
+/* 第 4 档：按住满此时长松开，启动 factory 分区固件。不进 hw_config，避免改 NVS 布局。 */
+#define SYS_MGR_BTN_FW_FACTORY_MS 30000
 
 #define RESET_PIN 14
 
@@ -60,6 +64,7 @@ enum {
     SYS_MGR_BTN_STATE1,
     SYS_MGR_BTN_STATE2,
     SYS_MGR_BTN_STATE3,
+    SYS_MGR_BTN_STATE4,
 };
 
 #ifdef CONFIG_BLUERETRO_HW2
@@ -84,6 +89,7 @@ static void sys_mgr_power_on(void);
 static void sys_mgr_power_off(void);
 static void sys_mgr_inquiry_toggle(void);
 static void sys_mgr_factory_reset(void);
+static void sys_mgr_fw_factory_restore(void);
 static void sys_mgr_deep_sleep(void);
 static void sys_mgr_esp_restart(void);
 static void sys_mgr_wired_reset(void);
@@ -351,15 +357,25 @@ static void boot_btn_hdl(void) {
         while (sys_mgr_get_boot_btn()) {
             uint32_t elapsed_ms = (uint32_t)((esp_timer_get_time() - hold_start_us) / 1000);
 
-            if (state < SYS_MGR_BTN_STATE3 &&
-                    elapsed_ms >= hw_config.sw_io0_hold_thres_ms[state]) {
+            uint32_t thres_ms;
+            uint32_t hz;
+
+            if (state < SYS_MGR_BTN_STATE3) {
+                thres_ms = hw_config.sw_io0_hold_thres_ms[state];
+                hz = hw_config.led_flash_hz[state];
+            }
+            else {
+                thres_ms = SYS_MGR_BTN_FW_FACTORY_MS;
+                hz = 16; /* 30s 出厂固件档，比 10s 更快闪 */
+            }
+            if (state < SYS_MGR_BTN_STATE4 && elapsed_ms >= thres_ms) {
                 /* 未到 1s 保持全灭；到达档位后才开始慢闪/快闪 */
                 if (!leds_flashing) {
                     set_leds_as_btn_status(1);
                     leds_flashing = 1;
                 }
                 ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, hw_config.led_flash_duty_cycle, 0);
-                ledc_set_freq(LEDC_LOW_SPEED_MODE, LEDC_TIMER_1, hw_config.led_flash_hz[state]);
+                ledc_set_freq(LEDC_LOW_SPEED_MODE, LEDC_TIMER_1, hz);
                 state++;
             }
             vTaskDelay(10 / portTICK_PERIOD_MS);
@@ -393,8 +409,11 @@ static void boot_btn_hdl(void) {
                 case SYS_MGR_BTN_STATE2:
                     bt_hci_start_inquiry();
                     break;
-                default:
+                case SYS_MGR_BTN_STATE3:
                     sys_mgr_factory_reset();
+                    break;
+                default:
+                    sys_mgr_fw_factory_restore();
                     break;
             }
         }
@@ -503,12 +522,24 @@ static int32_t sys_mgr_get_boot_btn(void) {
 }
 
 static void sys_mgr_factory_reset(void) {
-    /* 只清配置文件，恢复默认映射；不再擦 otadata，避免长按过头把固件回滚 */
+    /* 只清配置文件，恢复默认映射；出厂固件走 30s 档 */
     fs_reset();
     printf("BlueRetro config reset\n");
     bt_host_disconnect_all();
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     esp_restart();
+}
+
+static void sys_mgr_fw_factory_restore(void) {
+    const esp_partition_t *factory = esp_partition_find_first(
+            ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_APP_FACTORY, NULL);
+
+    printf("BlueRetro restore factory firmware\n");
+    if (factory && esp_ota_set_boot_partition(factory) == ESP_OK) {
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        esp_restart();
+    }
+    printf("# set factory boot partition fail\n");
 }
 
 static void sys_mgr_esp_restart(void) {
