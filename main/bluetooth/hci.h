@@ -12,6 +12,8 @@ int32_t bt_hci_init(void);
 const char *bt_hci_get_device_name(void);
 void bt_hci_start_inquiry(void);
 void bt_hci_stop_inquiry(void);
+/* 停 Inquiry 且不再开 LE scan（配置口刷固件用） */
+void bt_hci_stop_inquiry_no_scan(void);
 uint32_t bt_hci_get_inquiry(void);
 void bt_hci_inquiry_override(uint32_t state);
 void bt_hci_disconnect(struct bt_dev *device);

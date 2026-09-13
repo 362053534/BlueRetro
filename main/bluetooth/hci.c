@@ -1074,9 +1074,11 @@ static void bt_hci_le_meta_evt_hdlr(struct bt_hci_pkt *bt_hci_evt_pkt) {
             else {
                 bt_host_get_dev_conf(&device);
 
-                if (!le_conn_complete->status && !atomic_test_bit(&device->flags, BT_DEV_DEVICE_FOUND)) {
+                if (!le_conn_complete->status) {
                     atomic_set_bit(&device->flags, BT_DEV_DEVICE_FOUND);
                     device->acl_handle = le_conn_complete->handle;
+                    /* 配置口已连：停搜且不开 scan，灯随之熄灭 */
+                    bt_hci_stop_inquiry_no_scan();
                 }
                 else {
                     printf("# dev NULL!\n");
@@ -1270,6 +1272,13 @@ void bt_hci_stop_inquiry(void) {
     err_led_clear();
 }
 
+void bt_hci_stop_inquiry_no_scan(void) {
+    bt_hci_cmd_exit_periodic_inquiry(NULL);
+    bt_hci_cmd_le_set_scan_enable(0);
+    inquiry_state = 0;
+    err_led_clear();
+}
+
 uint32_t bt_hci_get_inquiry(void) {
     return inquiry_state;
 }
@@ -1456,11 +1465,14 @@ void bt_hci_evt_hdlr(struct bt_hci_pkt *bt_hci_evt_pkt) {
                 bt_host_get_dev_conf(&device);
                 if (device && disconn_complete->handle == device->acl_handle) {
                     printf("# DISCONN from BLE config interface\n");
-                    if (atomic_test_bit(&device->flags, BT_DEV_DEVICE_FOUND)) {
-                        bt_host_reset_dev(device);
-                        if (bt_host_get_active_dev(&device) == BT_NONE) {
-                            bt_hci_cmd_le_set_adv_enable(NULL);
+                    atomic_clear_bit(&device->flags, BT_DEV_DEVICE_FOUND);
+                    device->acl_handle = 0;
+                    if (bt_host_get_active_dev(&device) == BT_NONE) {
+                        /* 按当前配置恢复搜索：Auto 慢闪，Manual 保持不闪 */
+                        if (config.global_cfg.inquiry_mode == INQ_AUTO) {
+                            bt_hci_start_inquiry();
                         }
+                        bt_hci_cmd_le_set_adv_enable(NULL);
                     }
                 }
                 else {
