@@ -274,7 +274,7 @@ int32_t xbox_to_generic(struct bt_data *bt_data, struct wireless_ctrl *ctrl_data
     return 0;
 }
 
-void xbox_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_data) {
+bool xbox_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_data) {
     struct bt_hidp_xb1_rumble *rumble = (struct bt_hidp_xb1_rumble *)bt_data->base.output;
 
     switch (fb_data->type) {
@@ -289,4 +289,6 @@ void xbox_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_data) {
             }
             break;
     }
+    /* GCC 14 / IDF 5.5：函数表要求 bool，与其它手柄对齐。 */
+    return true;
 }
