@@ -70,6 +70,8 @@ static atomic_t bt_flags = 0;
 static uint32_t frag_size = 0;
 static uint32_t frag_offset = 0;
 static uint8_t frag_buf[1024];
+static TaskHandle_t bt_host_task_hdl;
+static TaskHandle_t bt_fb_task_hdl;
 
 #ifdef CONFIG_BLUERETRO_BT_H4_TRACE
 static void bt_h4_trace(uint8_t *data, uint16_t len, uint8_t dir);
@@ -719,6 +721,28 @@ void bt_host_q_wait_pkt(uint32_t ms) {
     bt_host_txq_add(packet, sizeof(packet));
 }
 
+void bt_host_cfg_suspend_bg(void) {
+    if (bt_fb_task_hdl) {
+        vTaskSuspend(bt_fb_task_hdl);
+    }
+    if (bt_host_task_hdl) {
+        vTaskSuspend(bt_host_task_hdl);
+    }
+}
+
+void bt_host_cfg_resume_bg(void) {
+    if (bt_host_task_hdl) {
+        vTaskResume(bt_host_task_hdl);
+    }
+    if (bt_fb_task_hdl) {
+        vTaskResume(bt_fb_task_hdl);
+    }
+}
+
+int32_t bt_host_cfg_is_connected(void) {
+    return atomic_test_bit(&bt_dev_conf.flags, BT_DEV_DEVICE_FOUND);
+}
+
 int32_t bt_host_init(void) {
     int32_t ret;
 
@@ -760,8 +784,8 @@ int32_t bt_host_init(void) {
     bt_host_load_keys_from_file(&bt_host_link_keys);
     bt_host_load_le_keys_from_file(&bt_host_le_link_keys);
 
-    xTaskCreatePinnedToCore(&bt_host_task, "bt_host_task", 3072, NULL, 5, NULL, 0);
-    xTaskCreatePinnedToCore(&bt_fb_task, "bt_fb_task", 3072, NULL, 10, NULL, 0);
+    xTaskCreatePinnedToCore(&bt_host_task, "bt_host_task", 3072, NULL, 5, &bt_host_task_hdl, 0);
+    xTaskCreatePinnedToCore(&bt_fb_task, "bt_fb_task", 3072, NULL, 10, &bt_fb_task_hdl, 0);
     xTaskCreatePinnedToCore(&bt_tx_task, "bt_tx_task", 2048, NULL, 11, NULL, 0);
 
     if (bt_hci_init()) {

@@ -1079,6 +1079,10 @@ static void bt_hci_le_meta_evt_hdlr(struct bt_hci_pkt *bt_hci_evt_pkt) {
                     device->acl_handle = le_conn_complete->handle;
                     /* 配置口已连：停搜且不开 scan，灯随之熄灭 */
                     bt_hci_stop_inquiry_no_scan();
+                    /* 踢掉已连手柄，避免占空中、塞震动队列 */
+                    bt_host_disconnect_all();
+                    /* 刷固件：挂起 fb/host 空转，TX 继续发 OTA */
+                    bt_host_cfg_suspend_bg();
                 }
                 else {
                     printf("# dev NULL!\n");
@@ -1454,7 +1458,9 @@ void bt_hci_evt_hdlr(struct bt_hci_pkt *bt_hci_evt_pkt) {
             if (device) {
                 printf("# DISCONN from dev: %ld\n", device->ids.id);
                 bt_host_reset_dev(device);
-                if (bt_host_get_active_dev(&device) == BT_NONE) {
+                /* 配置口还在就不要重新开搜，否则刚踢的手柄又会被搜回来 */
+                if (bt_host_get_active_dev(&device) == BT_NONE &&
+                        !bt_host_cfg_is_connected()) {
                     if (config.global_cfg.inquiry_mode == INQ_AUTO) {
                         bt_hci_start_inquiry();
                     }
@@ -1467,6 +1473,8 @@ void bt_hci_evt_hdlr(struct bt_hci_pkt *bt_hci_evt_pkt) {
                     printf("# DISCONN from BLE config interface\n");
                     atomic_clear_bit(&device->flags, BT_DEV_DEVICE_FOUND);
                     device->acl_handle = 0;
+                    /* 配置口断开：恢复 fb/host */
+                    bt_host_cfg_resume_bg();
                     if (bt_host_get_active_dev(&device) == BT_NONE) {
                         /* 按当前配置恢复搜索：Auto 慢闪，Manual 保持不闪 */
                         if (config.global_cfg.inquiry_mode == INQ_AUTO) {

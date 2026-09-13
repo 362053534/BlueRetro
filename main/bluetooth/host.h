@@ -160,6 +160,10 @@ static inline void bt_host_hid_init_done(struct bt_dev *device) {
 }
 
 void bt_host_q_wait_pkt(uint32_t ms);
+/* 配置口连上/断开：挂起或恢复 fb、host。TX 不停，OTA 仍能发 HCI。 */
+void bt_host_cfg_suspend_bg(void);
+void bt_host_cfg_resume_bg(void);
+int32_t bt_host_cfg_is_connected(void);
 int32_t bt_host_init(void);
 int32_t bt_host_txq_add(uint8_t *packet, uint32_t packet_len);
 int32_t bt_host_load_link_key(struct bt_hci_cp_link_key_reply *link_key_reply);
