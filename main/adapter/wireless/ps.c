@@ -371,6 +371,35 @@ static void hid_to_generic(struct bt_data *bt_data, struct wireless_ctrl *ctrl_d
     }
 }
 
+/* 死区内除系数；死区外乘增益并向上取整，钳 255。小电机不走这里。 */
+static inline uint8_t ps4_lf_apply(uint8_t lf) {
+    float v;
+    uint32_t out;
+
+    if (lf == 0) {
+        return 0;
+    }
+    if (lf <= PS4_LF_MOTOR_DEADZONE) {
+        if (PS4_LF_DEADZONE_COEFF == 0) {
+            return 0;
+        }
+        lf /= PS4_LF_DEADZONE_COEFF;
+        return lf < 1 ? 1 : lf;
+    }
+    v = (float)lf * (float)PS4_LF_OUTSIDE_GAIN;
+    if (v <= 0.0f) {
+        return 0;
+    }
+    out = (uint32_t)v;
+    if ((float)out < v) {
+        out++;
+    }
+    if (out > 255) {
+        out = 255;
+    }
+    return (uint8_t)out;
+}
+
 static void ps4_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_data) {
     struct bt_hidp_ps4_set_conf *set_conf = (struct bt_hidp_ps4_set_conf *)bt_data->base.output;
 
@@ -378,7 +407,7 @@ static void ps4_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
         case FB_TYPE_RUMBLE:
             if (fb_data->state) {
                 set_conf->hf_motor_pwr = fb_data->hf_pwr;
-                set_conf->lf_motor_pwr = fb_data->lf_pwr;
+                set_conf->lf_motor_pwr = ps4_lf_apply(fb_data->lf_pwr);
             }
             else {
                 set_conf->hf_motor_pwr = 0x00;

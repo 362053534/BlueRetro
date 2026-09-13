@@ -36,6 +36,13 @@ struct bt_hidp_ps4_set_conf {
     uint32_t crc;
 } __packed;
 
+/* DS4 大电机死区：0-255，lf<=此值走死区系数，外侧不含。0=仅 lf=0。 */
+#define PS4_LF_MOTOR_DEADZONE 31
+/* 死区衰减系数：0=无震；>0 为除数，越大越弱，商<1 则发 1。 */
+#define PS4_LF_DEADZONE_COEFF 0
+/* 死区外乘数：1=原样，2=两倍钳 255，0.5=一半向上取整，0=死区外无震。 */
+#define PS4_LF_OUTSIDE_GAIN 2.0f
+
 #define BT_HIDP_PS5_SET_CONF 0x31
 #define BT_HIDP_PS5_LED_LIGHTBAR_CONTROL 0x04
 #define BT_HIDP_PS5_LED_RELEASE 0x08
