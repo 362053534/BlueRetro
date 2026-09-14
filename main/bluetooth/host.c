@@ -70,6 +70,7 @@ static uint32_t frag_offset = 0;
 static uint8_t frag_buf[1024];
 static TaskHandle_t bt_host_task_hdl;
 static TaskHandle_t bt_fb_task_hdl;
+static TaskHandle_t bt_tx_task_hdl;
 
 #ifdef CONFIG_BLUERETRO_BT_H4_TRACE
 static void bt_h4_trace(uint8_t *data, uint16_t len, uint8_t dir);
@@ -227,7 +228,8 @@ static void bt_tx_task(void *param) {
             }
         }
         else {
-            vTaskDelay(10 / portTICK_PERIOD_MS);
+            /* 等 VHCI ready 回调叫醒，不再固定睡 10ms */
+            ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         }
     }
 }
@@ -469,6 +471,10 @@ static void bt_host_acl_hdlr(struct bt_hci_pkt *bt_hci_acl_pkt, uint32_t len) {
  */
 static void bt_host_tx_pkt_ready(void) {
     atomic_set_bit(&bt_flags, BT_CTRL_READY);
+    /* Core0 VHCI 回调，直接叫醒 tx_task */
+    if (bt_tx_task_hdl) {
+        xTaskNotifyGive(bt_tx_task_hdl);
+    }
 }
 
 /*
@@ -760,7 +766,7 @@ int32_t bt_host_init(void) {
     xTaskCreatePinnedToCore(&bt_host_task, "bt_host_task", 3072, NULL, 5, &bt_host_task_hdl, 0);
     xTaskCreatePinnedToCore(&bt_fb_task, "bt_fb_task", 3072, NULL, 10, &bt_fb_task_hdl, 0);
     fb_doorbell_init(bt_fb_task_hdl);
-    xTaskCreatePinnedToCore(&bt_tx_task, "bt_tx_task", 2048, NULL, 11, NULL, 0);
+    xTaskCreatePinnedToCore(&bt_tx_task, "bt_tx_task", 2048, NULL, 11, &bt_tx_task_hdl, 0);
 
     if (bt_hci_init()) {
         printf("# HCI init fail.\n");
