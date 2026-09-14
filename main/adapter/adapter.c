@@ -50,6 +50,7 @@ static struct raw_fb rumble_mailbox[WIRED_MAX_DEV];
 static atomic_t rumble_mailbox_seq[WIRED_MAX_DEV];
 static atomic_t rumble_mailbox_pend[WIRED_MAX_DEV];
 /* 上一包马达值。重复的 0 不门铃；非 0 每帧都踢。 */
+static uint16_t rumble_zero_cnt[WIRED_MAX_DEV];
 static uint8_t rumble_doorbell_last[WIRED_MAX_DEV][2];
 
 static uint32_t btn_id_to_btn_idx(uint8_t btn_id) {
@@ -500,6 +501,22 @@ void IRAM_ATTR adapter_q_fb(struct raw_fb *fb_data) {
 
     /* 震动走每口邮箱：新包覆盖旧包，stop 不会因队列满被丢掉 */
     if (fb_data->header.type == FB_TYPE_RUMBLE && id < WIRED_MAX_DEV) {
+        if (fb_data->data[0] == 0 && fb_data->data[1] == 0) {
+            uint16_t need = RUMBLE_STOP_ZERO_COUNT;
+            if (need < 1) {
+                need = 1;
+            }
+            if (rumble_zero_cnt[id] < 0xFFFF) {
+                rumble_zero_cnt[id]++;
+            }
+            /* 未凑够连续 0：不改邮箱，手柄继续上一档 */
+            if (rumble_zero_cnt[id] < need) {
+                return;
+            }
+        }
+        else {
+            rumble_zero_cnt[id] = 0;
+        }
         /* seq 奇数表示 ISR 正在写，偶数表示数据稳定 */
         atomic_inc(&rumble_mailbox_seq[id]);
         memcpy(&rumble_mailbox[id], fb_data, sizeof(*fb_data));

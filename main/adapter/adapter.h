@@ -33,6 +33,8 @@
 #define BT_FB_BATT_POLL_TICKS (1000 / BT_FB_TASK_DELAY_MS)   /* 1s 进电量函数 */
 #define BT_FB_BATT_BLINK_TICKS (1000 / BT_FB_TASK_DELAY_MS)  /* 1s DS5 灯条翻转 */
 #define BT_FB_BATT_DECIDE_TICKS (5000 / BT_FB_TASK_DELAY_MS) /* 5s 低电判定 */
+/* 连续多少次马达全 0 才发 stop。1=立刻停；>1 会把帧级 PWM 粘成持续震。 */
+#define RUMBLE_STOP_ZERO_COUNT 100
 
 /* BT device type ID */
 enum {
