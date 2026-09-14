@@ -206,7 +206,7 @@ void ps_batt_led_poll(struct bt_data *bt_data, uint32_t tick) {
 
     /* 充电且未满：绿灯常亮。插电已满则走熄灯，不做低电红闪 */
     if (bt_data->base.batt_charging) {
-        if ((tick % 500) == 0) {
+        if ((tick % BT_FB_BATT_DECIDE_TICKS) == 0) {
             bt_data->base.batt_low = 0;
             bt_data->base.batt_low_pending = 0;
             bt_data->base.batt_ds5_on = 0;
@@ -217,7 +217,7 @@ void ps_batt_led_poll(struct bt_data *bt_data, uint32_t tick) {
 
     want_low = ps_batt_is_low(bt_data);
 
-    if ((tick % 500) == 0) {
+    if ((tick % BT_FB_BATT_DECIDE_TICKS) == 0) {
         if (want_low) {
             if (bt_data->base.batt_low_pending) {
                 bt_data->base.batt_low = 1;
@@ -238,7 +238,7 @@ void ps_batt_led_poll(struct bt_data *bt_data, uint32_t tick) {
             ps_apply_batt_led(bt_data, PS_BATT_LED_LOW);
         }
     }
-    else if ((tick % 100) == 0 &&
+    else if ((tick % BT_FB_BATT_BLINK_TICKS) == 0 &&
             bt_data->base.batt_low &&
             bt_data->base.pids->subtype == BT_PS5_DS) {
         bt_data->base.batt_ds5_on ^= 1;

@@ -148,7 +148,7 @@ static void ps3_set_batt_led(struct bt_data *bt_data, uint8_t mode) {
 void ps3_batt_led_poll(struct bt_data *bt_data, uint32_t tick) {
     uint8_t want_low;
 
-    if (!bt_data->base.batt_valid || (tick % 500) != 0) {
+    if (!bt_data->base.batt_valid || (tick % BT_FB_BATT_DECIDE_TICKS) != 0) {
         return;
     }
 

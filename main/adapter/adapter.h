@@ -26,6 +26,14 @@
 #define HID_MAX_REPORT 10
 #define MAX_PULL_BACK 0.95
 
+/* bt_fb_task 无门铃时一圈；空闲 HID / 电量灯按此换算墙钟时间 */
+#define BT_FB_TASK_DELAY_MS 100
+#define BT_FB_TASK_IDLE_HID_MS 1000
+#define BT_FB_TASK_DELAY_CNT (BT_FB_TASK_IDLE_HID_MS / BT_FB_TASK_DELAY_MS)
+#define BT_FB_BATT_POLL_TICKS (1000 / BT_FB_TASK_DELAY_MS)   /* 1s 进电量函数 */
+#define BT_FB_BATT_BLINK_TICKS (1000 / BT_FB_TASK_DELAY_MS)  /* 1s DS5 灯条翻转 */
+#define BT_FB_BATT_DECIDE_TICKS (5000 / BT_FB_TASK_DELAY_MS) /* 5s 低电判定 */
+
 /* BT device type ID */
 enum {
     BT_NONE = -1,

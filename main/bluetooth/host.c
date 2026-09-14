@@ -36,9 +36,6 @@
 
 #define BT_TX 0
 #define BT_RX 1
-#define BT_FB_TASK_DELAY_CNT 30
-#define BT_FB_TASK_DELAY_MS 10       /* 有手柄：10ms，空闲 HID = 300ms */
-#define BT_FB_TASK_DELAY_MS_IDLE 100 /* 无手柄：对齐 2410，空闲 HID = 3s */
 
 enum {
     /* BT CTRL flags */
@@ -238,36 +235,10 @@ static void bt_tx_task(void *param) {
 static void bt_fb_task(void *param) {
     uint32_t *fb_len;
     struct raw_fb *fb_data = NULL;
-    uint32_t delay_cnt = BT_FB_TASK_DELAY_CNT; /* 有手柄 10ms*30=300ms；无手柄 100ms*30=3s */
+    uint32_t delay_cnt = BT_FB_TASK_DELAY_CNT; /* 100ms*10=1s 空闲 HID */
     static bool rumble_hold[BT_MAX_DEV] = {0};
 
     while(1) {
-        /* 无手柄：排空队列以免堆满打日志，但不跑邮箱/灯/震动 */
-        if (!bt_host_get_flag_dev_cnt(BT_DEV_HID_INIT_DONE)) {
-            while ((fb_data = (struct raw_fb *)queue_bss_dequeue(wired_adapter.input_q_hdl, &fb_len))) {
-                switch (fb_data->header.type) {
-                    case FB_TYPE_MEM_WRITE:
-                        mc_storage_update();
-                        break;
-                    case FB_TYPE_GAME_ID:
-                        if (gid_update(fb_data)) {
-                            config_init(GAMEID_CFG);
-                        }
-                        break;
-                    case FB_TYPE_SYS_ID:
-                        if (gid_update_sys(fb_data)) {
-                            config_init(GAMEID_CFG);
-                        }
-                        break;
-                    default:
-                        break;
-                }
-                queue_bss_return(wired_adapter.input_q_hdl, (uint8_t *)fb_data, fb_len);
-            }
-            vTaskDelay(BT_FB_TASK_DELAY_MS_IDLE / portTICK_PERIOD_MS);
-            continue;
-        }
-
         bool fb_changed = false;
         bool rumble_on = false;
         /* Look for rumble/led feedback data */
@@ -344,7 +315,7 @@ static void bt_fb_task(void *param) {
                     wired_fb_to_generic(config.out_cfg[bt_data->base.pids->id].dev_mode,
                                         &rumble_fb, &gfb);
                     hold = (gfb.state || gfb.lf_pwr || gfb.hf_pwr);
-                    /* 开启中每拍都发；从开到关必须立刻发 stop，不能等 300ms */
+                    /* 开启中每拍都发；从开到关必须立刻发 stop，不能等空闲 HID */
                     if (hold || rumble_hold[device->ids.id]) {
                         fb_changed = true;
                         delay_cnt = 0;
@@ -366,7 +337,7 @@ static void bt_fb_task(void *param) {
             static uint32_t batt_tick = 0;
 
             batt_tick++;
-            if ((batt_tick % 100) == 0) {
+            if ((batt_tick % BT_FB_BATT_POLL_TICKS) == 0) {
                 for (uint32_t i = 0; i < BT_MAX_DEV; i++) {
                     struct bt_dev *device = &bt_dev[i];
 
@@ -377,7 +348,7 @@ static void bt_fb_task(void *param) {
             }
         }
 
-        /* 有手柄：震动每 10ms，空闲 300ms。无手柄：空闲 3s（100ms*30）。 */
+        /* 门铃立刻；没踢 100ms；空闲 HID 1s。无设备则循环不发 HID。 */
         if (rumble_on || fb_changed || delay_cnt-- == 0) {
             for (uint32_t i = 0; i < BT_MAX_DEV; i++) {
                 struct bt_dev *device = &bt_dev[i];
@@ -398,7 +369,7 @@ static void bt_fb_task(void *param) {
             }
             delay_cnt = rumble_on ? 0 : BT_FB_TASK_DELAY_CNT;
         }
-        /* 门铃立刻醒；没震动最多等 10ms，兼顾灯/队列/空闲 HID */
+        /* 门铃立刻醒；没踢最多等 100ms，兼顾灯/队列/1s 空闲 HID */
         ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(BT_FB_TASK_DELAY_MS));
     }
 }
