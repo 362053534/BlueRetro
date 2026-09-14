@@ -4,6 +4,7 @@ entries:
     main (noflash)
     atomic (noflash)
     core0_stall (noflash)
+    fb_doorbell (noflash)
     core0_stall_highint_hdl (noflash)
     gpio (noflash)
     intr (noflash)

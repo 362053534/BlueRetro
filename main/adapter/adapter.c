@@ -21,6 +21,7 @@
 #include "wired/wired.h"
 #include "wireless/wireless.h"
 #include "macro.h"
+#include "system/fb_doorbell.h"
 
 const uint32_t hat_to_ld_btns[16] = {
     BIT(PAD_LD_UP), BIT(PAD_LD_UP) | BIT(PAD_LD_RIGHT), BIT(PAD_LD_RIGHT), BIT(PAD_LD_DOWN) | BIT(PAD_LD_RIGHT),
@@ -48,6 +49,8 @@ static uint32_t adapter_out_mask[WIRED_MAX_DEV] = {0};
 static struct raw_fb rumble_mailbox[WIRED_MAX_DEV];
 static atomic_t rumble_mailbox_seq[WIRED_MAX_DEV];
 static atomic_t rumble_mailbox_pend[WIRED_MAX_DEV];
+/* 上一包马达值。重复的 0 不门铃；非 0 每帧都踢。 */
+static uint8_t rumble_doorbell_last[WIRED_MAX_DEV][2];
 
 static uint32_t btn_id_to_btn_idx(uint8_t btn_id) {
     if (btn_id < 32) {
@@ -502,6 +505,14 @@ void IRAM_ATTR adapter_q_fb(struct raw_fb *fb_data) {
         memcpy(&rumble_mailbox[id], fb_data, sizeof(*fb_data));
         atomic_inc(&rumble_mailbox_seq[id]);
         atomic_set(&rumble_mailbox_pend[id], 1);
+        /* 非 0 每帧踢（续命）；0 只在从有到无时踢。连续 0 不踢。 */
+        if (fb_data->data[0] || fb_data->data[1] ||
+                fb_data->data[0] != rumble_doorbell_last[id][0] ||
+                fb_data->data[1] != rumble_doorbell_last[id][1]) {
+            rumble_doorbell_last[id][0] = fb_data->data[0];
+            rumble_doorbell_last[id][1] = fb_data->data[1];
+            fb_doorbell_ring();
+        }
         return;
     }
 

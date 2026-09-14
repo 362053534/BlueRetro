@@ -32,6 +32,7 @@
 #include "adapter/hid_parser.h"
 #include "adapter/wireless/wireless.h"
 #include "bluetooth/hidp/ps.h"
+#include "system/fb_doorbell.h"
 
 #define BT_TX 0
 #define BT_RX 1
@@ -397,7 +398,8 @@ static void bt_fb_task(void *param) {
             }
             delay_cnt = rumble_on ? 0 : BT_FB_TASK_DELAY_CNT;
         }
-        vTaskDelay(BT_FB_TASK_DELAY_MS / portTICK_PERIOD_MS);
+        /* 门铃立刻醒；没震动最多等 10ms，兼顾灯/队列/空闲 HID */
+        ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(BT_FB_TASK_DELAY_MS));
     }
 }
 
@@ -786,6 +788,7 @@ int32_t bt_host_init(void) {
 
     xTaskCreatePinnedToCore(&bt_host_task, "bt_host_task", 3072, NULL, 5, &bt_host_task_hdl, 0);
     xTaskCreatePinnedToCore(&bt_fb_task, "bt_fb_task", 3072, NULL, 10, &bt_fb_task_hdl, 0);
+    fb_doorbell_init(bt_fb_task_hdl);
     xTaskCreatePinnedToCore(&bt_tx_task, "bt_tx_task", 2048, NULL, 11, NULL, 0);
 
     if (bt_hci_init()) {
