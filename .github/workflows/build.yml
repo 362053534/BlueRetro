@@ -1,7 +1,7 @@
 name: build
 on:
   push:
-    branches: [ 2410test ]
+    branches: [ fengge-v26.09 ]
   pull_request:
     branches: [ master ]
   workflow_dispatch:
