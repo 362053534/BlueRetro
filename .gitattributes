@@ -1,0 +1,8 @@
+# 统一 LF：仓库里混进 CRLF 会让 diff 整文件变红，review 时看不出真改动
+* text=auto eol=lf
+
+# 明确二进制，别被 text=auto 碰
+*.bin binary
+*.png binary
+*.jpg binary
+*.elf binary

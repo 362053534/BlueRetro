@@ -11,9 +11,6 @@
 #include "adapter/config.h"
 #include "ps.h"
 
-/* DS5 对 PS2 二值小电机恢复满幅输出，用于单独测试小电机震感。 */
-#define PS5_BINARY_HF_MOTOR_PWR 0xFF
-
 enum {
     PS4_S = 4,
     PS4_X,
@@ -466,8 +463,9 @@ static void ps5_fb_from_generic(struct generic_fb *fb_data, struct bt_data *bt_d
                 set_conf->lf_motor_pwr = ps5_lf_apply_deadzone(fb_data->lf_pwr);
                 /* 大电机在转就跟它的档；只有小电机时才不衰减。 */
                 set_conf->reduce_motor_power = ps5_lf_gear(fb_data->lf_pwr, set_conf->lf_motor_pwr);
-                set_conf->hf_motor_pwr = (fb_data->hf_pwr == 0xFF) ?
-                    PS5_BINARY_HF_MOTOR_PWR : fb_data->hf_pwr;
+                /* PS2 的小电机本来就是二值（ps_fb_to_generic 出 0xFF 或 0x00），
+                 * 直接透传即可，别再套一层恒等的三目。 */
+                set_conf->hf_motor_pwr = fb_data->hf_pwr;
             }
             else {
                 set_conf->valid_flag1 |= BT_HIDP_PS5_VIBRATION_ATTENUATION_ENABLE;
