@@ -6,6 +6,7 @@
 #ifndef _CONFIG_H_
 #define _CONFIG_H_
 
+#include <stddef.h>
 #include "adapter.h"
 
 #define CONFIG_MAGIC_V0 0xA5A5A5A5
@@ -91,10 +92,18 @@ struct hw_config {
             uint32_t sw_io0_hold_thres_ms[3];
             uint32_t ps_ctrl_colors[9];
         };
-        uint32_t data32[43];
+        uint32_t data32[44];
     };
     uint8_t bdaddr[6];
 } __packed;
+
+/* data32[] 必须逐字覆盖上面每一个可调字段：hw_config_patch() 用
+ * data32[index] 写入，index 来自 hw_config_name_idx[] 的下标。
+ * 字段增删时这两处（data32[] 与名字表）都要同步，否则编译期就报错。 */
+_Static_assert(sizeof(struct hw_config) ==
+        sizeof(((struct hw_config *)0)->data32)
+        + sizeof(((struct hw_config *)0)->bdaddr),
+    "hw_config: data32[] must cover every tunable field exactly");
 
 extern struct config config;
 extern struct hw_config hw_config;

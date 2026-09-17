@@ -104,6 +104,9 @@ static char *hw_config_name_idx[] = {
     "ps_ctrl_color_7",
     "ps_ctrl_color_8",
 };
+/* 名字表下标 == data32[] 下标，两边必须一一对应且顺序一致。 */
+_Static_assert(ARRAY_SIZE(hw_config_name_idx) == ARRAY_SIZE(hw_config.data32),
+    "hw_config_name_idx[] must have exactly one key per hw_config.data32[] word");
 static uint32_t config_src = DEFAULT_CFG;
 static uint32_t config_version_magic[] = {
     CONFIG_MAGIC_V0,
