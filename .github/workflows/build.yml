@@ -1,10 +1,14 @@
 name: build
 on:
   push:
-    branches: [ fengge-v26.09 ]
+    branches: [ fengge-v26.09, 'arena/**' ]
   pull_request:
-    branches: [ master ]
+    branches: [ fengge-v26.09, master ]
   workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -14,13 +18,12 @@ jobs:
         br_config:
           [playstation]
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     container:
       image: ghcr.io/darthcloud/idf-blueretro:v5.5.0_2024-12-02
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
       IDF_CCACHE_ENABLE: "1"
-    outputs:
-      br_version: ${{ env.br_version }}
 
     steps:
     - name: Checkout repo
@@ -32,23 +35,19 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ${{ github.workspace }}/.ccache
-        key: ccache-${{ matrix.hw_version }}-${{ matrix.br_config }}-${{ hashFiles('sdkconfig.defaults', 'configs/hw1/playstation') }}
+        key: ccache-${{ matrix.hw_version }}-${{ matrix.br_config }}-${{ hashFiles('sdkconfig.defaults', format('configs/{0}/{1}', matrix.hw_version, matrix.br_config)) }}
         restore-keys: |
           ccache-${{ matrix.hw_version }}-${{ matrix.br_config }}-
     - name: Build with ESP-IDF
       shell: bash
       run: |
         . $IDF_PATH/export.sh
-        echo "br_version=FengGe_V2" >> $GITHUB_ENV
         rm -fr build
         echo "FengGe_V2 ${{ matrix.br_config }}" | cut -c -31 > version.txt
         cat version.txt
         cp configs/${{ matrix.hw_version }}/${{ matrix.br_config }} sdkconfig
-        echo "--- ccache 是否可用 ---"
-        command -v ccache && ccache --version | head -1 || echo "!!! ccache 未安装，本次不会加速"
         ccache -z 2>/dev/null || true
         BR_HW=_${{ matrix.hw_version }} BR_SYS=_${{ matrix.br_config }} idf.py reconfigure build
-        echo "--- ccache 命中率统计 ---"
         ccache -s 2>/dev/null || true
     - name: Copy OTA initial binary
       working-directory: ./build
