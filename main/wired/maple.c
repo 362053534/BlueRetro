@@ -536,9 +536,17 @@ maple_end:
                                 pkt.cmd = CMD_ACK;
                                 maple_tx(port, maple0, maple1, pkt.data, pkt.len * 4 + 5);
                                 if (!bad_frame) {
-                                    if ((rumble_config[port] != pkt.data32[1] ||
-                                                rumble_timeout[port] != rumble_timeout_prev[port]) &&
-                                            config.out_cfg[port].acc_mode & ACC_RUMBLE) {
+                                    /* 只在主机真的改了 condition/timeout 时才下发，
+                                     * 避免每帧重复震动包。 */
+                                    uint32_t changed = (rumble_config[port] != pkt.data32[1]) ||
+                                        (rumble_timeout[port] != rumble_timeout_prev[port]);
+
+                                    /* 先落新值：下发的必须是主机这次给的 condition，
+                                     * 不能是上一帧的旧值（否则慢一拍，首次改动还会发默认值）。 */
+                                    rumble_config[port] = pkt.data32[1];
+                                    rumble_timeout_prev[port] = rumble_timeout[port];
+
+                                    if (changed && (config.out_cfg[port].acc_mode & ACC_RUMBLE)) {
                                         struct raw_fb fb_data = {0};
 
                                         fb_data.header.wired_id = port;
@@ -548,8 +556,6 @@ maple_end:
                                         *(uint32_t *)&fb_data.data[4] = rumble_config[port];
                                         adapter_q_fb(&fb_data);
                                     }
-                                    rumble_config[port] = pkt.data32[1];
-                                    rumble_timeout_prev[port] = rumble_config[port];
                                 }
                                 break;
                             default:

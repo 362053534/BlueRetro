@@ -96,8 +96,6 @@ struct ps_ctrl_port {
     uint8_t rumble_l_state[MT_PORT_MAX];
     uint8_t rumble_r_idx[MT_PORT_MAX];
     uint8_t rumble_l_idx[MT_PORT_MAX];
-    uint8_t rumble_r_val[MT_PORT_MAX];
-    uint8_t rumble_l_val[MT_PORT_MAX];
     uint8_t analog_btn[MT_PORT_MAX];
     uint32_t dev_desc[MT_PORT_MAX];
     uint32_t idx;
@@ -282,12 +280,12 @@ static void ps_cmd_req_hdlr(struct ps_ctrl_port *port, uint8_t id, uint8_t cmd, 
     switch (cmd) {
         case 0x42:
         {
-            req++;
             /* PS2 震动靠每帧 0x42 重复下发马达值来保持。
              * 模拟模式每个 poll 都入队，让蓝牙 HID 持续续命，对齐 PADEMU。 */
             if (port->dev_id[id] != 0x41
                     && (config.out_cfg[id + port->mt_first_port].acc_mode & ACC_RUMBLE)) {
                 struct raw_fb fb_data = {0};
+                req++;
                 if (port->rumble_r_state[id]) {
                     fb_data.data[0] = req[port->rumble_r_idx[id]];
                 }
@@ -299,8 +297,6 @@ static void ps_cmd_req_hdlr(struct ps_ctrl_port *port, uint8_t id, uint8_t cmd, 
                 fb_data.header.data_len = 2;
                 adapter_q_fb(&fb_data);
             }
-            port->rumble_r_val[id] = req[port->rumble_r_idx[id]];
-            port->rumble_l_val[id] = req[port->rumble_l_idx[id]];
             break;
         }
         case 0x43:
@@ -587,7 +583,9 @@ static void packet_end(void *arg) {
                 else {
                     ps_analog_btn_hdlr(port, 0);
                     ps_cmd_req_hdlr(port, 0, port->rx_buf[port->active_rx_buf][1], &port->rx_buf[port->active_rx_buf][2]);
-                    ps_gen_turbo_mask(&wired_adapter.data[port->id]);
+                    /* 用 mt_first_port 而不是物理口号：multitap 占 slot 1 或双 slot 时，
+                     * 2 号口的有线槽从 4 开始，用 port->id 会把 turbo 打到 1 号口的槽上。 */
+                    ps_gen_turbo_mask(&wired_adapter.data[port->mt_first_port]);
                 }
                 if (port->root_dev_type == DEV_PSX_MULTITAP) {
                     port->mt_state = port->rx_buf[port->active_rx_buf][2];
