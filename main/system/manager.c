@@ -412,8 +412,12 @@ static void boot_btn_hdl(void) {
                 case SYS_MGR_BTN_STATE3:
                     sys_mgr_factory_reset();
                     break;
-                default:
+                case SYS_MGR_BTN_STATE4:
                     sys_mgr_fw_factory_restore();
+                    break;
+                default:
+                    /* 不认识的档位什么都不做：出厂固件回滚绝不能落到 default，
+                     * 否则 HW2 内置机型短按（state 停在 0）会直接被切到 factory 分区重启。 */
                     break;
             }
         }
