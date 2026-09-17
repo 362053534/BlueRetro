@@ -90,9 +90,13 @@ struct hw_config {
             uint32_t reset_pin_polarity;
             uint32_t reset_pin_pulse_ms;
             uint32_t sw_io0_hold_thres_ms[3];
-            uint32_t ps_ctrl_colors[9];
+            /* 每口一个灯条颜色，按 out_idx 索引。原来有第 9 个 Black 专门用来关灯，
+             * 现在关灯走 wireless/ps.c 的电量灯逻辑（PS_BATT_LED_OFF），故删除。
+             * 注：上游 v24.10 那 6 处 hw_config.ps_ctrl_colors[out_idx] 读取点
+             * 已被电量灯改造全部替换，这 8 个颜色目前在固件里没有消费者。 */
+            uint32_t ps_ctrl_colors[8];
         };
-        uint32_t data32[44];
+        uint32_t data32[43];
     };
     uint8_t bdaddr[6];
 } __packed;
