@@ -54,7 +54,6 @@ struct hw_config hw_config = {
         0x0080FF, /* Orange */
         0x00FFFF, /* Yellow */
         0xFF0080, /* Purple */
-        0x000000, /* Black */
     },
 };
 
@@ -102,7 +101,6 @@ static char *hw_config_name_idx[] = {
     "ps_ctrl_color_5",
     "ps_ctrl_color_6",
     "ps_ctrl_color_7",
-    "ps_ctrl_color_8",
 };
 /* 名字表下标 == data32[] 下标，两边必须一一对应且顺序一致。 */
 _Static_assert(ARRAY_SIZE(hw_config_name_idx) == ARRAY_SIZE(hw_config.data32),
