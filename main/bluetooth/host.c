@@ -71,6 +71,10 @@ static uint8_t frag_buf[1024];
 static TaskHandle_t bt_host_task_hdl;
 static TaskHandle_t bt_fb_task_hdl;
 static TaskHandle_t bt_tx_task_hdl;
+/* 每个蓝牙设备是否仍在震。放在文件作用域是为了在 bt_host_reset_dev 里清掉：
+ * 手柄断开后再没有 0x42 来把邮箱清零，残留的 true 会让 rumble_on 永远成立，
+ * 空闲心跳从 1s 被打回 100ms，DS5 的灯条 RELEASE 重试也永远轮不到。 */
+static bool rumble_hold[BT_MAX_DEV] = {0};
 
 #ifdef CONFIG_BLUERETRO_BT_H4_TRACE
 static void bt_h4_trace(uint8_t *data, uint16_t len, uint8_t dir);
@@ -238,7 +242,12 @@ static void bt_fb_task(void *param) {
     uint32_t *fb_len;
     struct raw_fb *fb_data = NULL;
     uint32_t delay_cnt = BT_FB_TASK_DELAY_CNT; /* 100ms*10=1s 空闲 HID */
-    static bool rumble_hold[BT_MAX_DEV] = {0};
+    /* 电量灯按墙钟走：门铃会在震动期间每帧叫醒本任务（PS 单口 ~60Hz、双口 ~120Hz），
+     * 用循环次数当 tick 会把 1s/5s 的节奏压成 1/10，DS5 低电灯条会变成 ~6Hz 频闪。 */
+    int64_t batt_last_us = 0;
+    int64_t batt_acc_us = 0;
+    uint32_t batt_tick = 0;
+    bool batt_time_init = false;
 
     while(1) {
         bool fb_changed = false;
@@ -266,7 +275,9 @@ static void bt_fb_task(void *param) {
                     /* Fallthrough */
                 case FB_TYPE_RUMBLE:
                     if (bt_data) {
-                        fb_changed = adapter_bridge_fb(fb_data, bt_data);
+                        /* |= 而不是 =：一轮里排空多个包时，后一个失败的桥接
+                         * 不能把前面已经算好的灯/震动更新抹掉。 */
+                        fb_changed |= adapter_bridge_fb(fb_data, bt_data);
                         /* LED 会落入此分支，仅震动包更新保持标志 */
                         if (fb_data->header.type == FB_TYPE_RUMBLE && device && bt_data->base.pids) {
                             struct generic_fb gfb = {0};
@@ -328,7 +339,10 @@ static void bt_fb_task(void *param) {
         }
 
         for (uint32_t i = 0; i < BT_MAX_DEV; i++) {
-            if (rumble_hold[i]) {
+            /* 只算 HID 就绪的设备：手柄断开时残留的标志不能再当作"在震"，
+             * 否则 rumble_on 永远成立，空闲心跳从 1s 被打回 100ms，
+             * DS5 的灯条 RELEASE 重试也永远轮不到。 */
+            if (rumble_hold[i] && atomic_test_bit(&bt_dev[i].flags, BT_DEV_HID_INIT_DONE)) {
                 rumble_on = true;
                 break;
             }
@@ -336,15 +350,31 @@ static void bt_fb_task(void *param) {
 
         /* 低电灯：5s 判定一次，DS5 1s 翻转灯条；只改 output，不另发 HID */
         {
-            static uint32_t batt_tick = 0;
+            int64_t now_us = esp_timer_get_time();
 
-            batt_tick++;
-            if ((batt_tick % BT_FB_BATT_POLL_TICKS) == 0) {
-                for (uint32_t i = 0; i < BT_MAX_DEV; i++) {
-                    struct bt_dev *device = &bt_dev[i];
+            if (!batt_time_init) {
+                batt_last_us = now_us;
+                batt_time_init = true;
+            }
+            batt_acc_us += now_us - batt_last_us;
+            batt_last_us = now_us;
+            /* 任务被挂起过（刷固件时 bt_host_cfg_suspend_bg）会积下大量时间，
+             * 别一次性补几千个 tick，丢掉积压只保留一拍。 */
+            if (batt_acc_us > (int64_t)BT_FB_TASK_DELAY_MS * 2000) {
+                batt_acc_us = (int64_t)BT_FB_TASK_DELAY_MS * 1000;
+            }
 
-                    if (atomic_test_bit(&device->flags, BT_DEV_HID_INIT_DONE)) {
-                        wireless_batt_led_poll(&bt_adapter.data[device->ids.id], batt_tick);
+            /* 每满 100ms 墙钟推进一个 tick，tick % N 的语义与原来一致 */
+            while (batt_acc_us >= (int64_t)BT_FB_TASK_DELAY_MS * 1000) {
+                batt_acc_us -= (int64_t)BT_FB_TASK_DELAY_MS * 1000;
+                batt_tick++;
+                if ((batt_tick % BT_FB_BATT_POLL_TICKS) == 0) {
+                    for (uint32_t i = 0; i < BT_MAX_DEV; i++) {
+                        struct bt_dev *device = &bt_dev[i];
+
+                        if (atomic_test_bit(&device->flags, BT_DEV_HID_INIT_DONE)) {
+                            wireless_batt_led_poll(&bt_adapter.data[device->ids.id], batt_tick);
+                        }
                     }
                 }
             }
@@ -678,6 +708,8 @@ void bt_host_reset_dev(struct bt_dev *device) {
 
 reset_dev:
     adapter_init_buffer(dev_id);
+    /* 断开时必须清掉"仍在震"，否则 bt_fb_task 的 rumble_on 会永久成立 */
+    rumble_hold[dev_id] = false;
     memset(bt_adapter.data[dev_id].raw_src_mappings, 0, sizeof(*bt_adapter.data[0].raw_src_mappings) * REPORT_MAX);
     memset(bt_adapter.data[dev_id].reports, 0, sizeof(*bt_adapter.data[0].reports) * REPORT_MAX);
     memset(&bt_adapter.data[dev_id].base, 0, sizeof(bt_adapter.data[0].base));

@@ -53,6 +53,11 @@ static atomic_t rumble_mailbox_pend[WIRED_MAX_DEV];
 static uint16_t rumble_zero_cnt[WIRED_MAX_DEV];
 static uint8_t rumble_doorbell_last[WIRED_MAX_DEV][2];
 
+/* Xtensa 的 s32c1i（atomic_*）不构成内存屏障。邮箱是 seqlock，两侧都要 memw，
+ * 否则 Core0 可能先看到 seq 变偶、后看到 memcpy 的数据，读到半新半旧。
+ * "memory" 顺带挡住编译器重排。本项目只跑 ESP32（Xtensa），memw 恒可用。 */
+#define RUMBLE_MEMW() __asm__ __volatile__("memw" ::: "memory")
+
 static uint32_t btn_id_to_btn_idx(uint8_t btn_id) {
     if (btn_id < 32) {
         return 0;
@@ -501,25 +506,42 @@ void IRAM_ATTR adapter_q_fb(struct raw_fb *fb_data) {
 
     /* 震动走每口邮箱：新包覆盖旧包，stop 不会因队列满被丢掉 */
     if (fb_data->header.type == FB_TYPE_RUMBLE && id < WIRED_MAX_DEV) {
-        if (fb_data->data[0] == 0 && fb_data->data[1] == 0) {
-            uint16_t need = RUMBLE_STOP_ZERO_COUNT;
-            if (need < 1) {
-                need = 1;
+        /* 只有马达值确实在 data[0..1] 的系统才做连续 0 去抖：
+         *   data_len == 1 (N64) / 2 (PS)
+         * 另外两类必须直通：
+         *   data_len == 0 是 BR 自己 stop 定时器发的权威停震，一次性的，
+         *                 被去抖吞掉 N64/DC 就会一直震（见 adapter_fb_stop_cb）；
+         *   data_len >  2 是 DC，8 字节 timeout+vibration，马达值在 data[4..7]，
+         *                 拿 data[0..1] 判零是错的判据。 */
+        if (fb_data->header.data_len == 1 || fb_data->header.data_len == 2) {
+            if (fb_data->data[0] == 0 && fb_data->data[1] == 0) {
+                uint16_t need = RUMBLE_STOP_ZERO_COUNT;
+                if (need < 1) {
+                    need = 1;
+                }
+                if (rumble_zero_cnt[id] < 0xFFFF) {
+                    rumble_zero_cnt[id]++;
+                }
+                /* 未凑够连续 0：不改邮箱，手柄继续上一档 */
+                if (rumble_zero_cnt[id] < need) {
+                    return;
+                }
             }
-            if (rumble_zero_cnt[id] < 0xFFFF) {
-                rumble_zero_cnt[id]++;
-            }
-            /* 未凑够连续 0：不改邮箱，手柄继续上一档 */
-            if (rumble_zero_cnt[id] < need) {
-                return;
+            else {
+                rumble_zero_cnt[id] = 0;
             }
         }
         else {
             rumble_zero_cnt[id] = 0;
         }
-        /* seq 奇数表示 ISR 正在写，偶数表示数据稳定 */
+        /* seq 奇数表示 ISR 正在写，偶数表示数据稳定。
+         * 单写者约定：Core1 上 SPI2/SPI3/GPIO 三个中断都是 level 2，互不嵌套，
+         * 所以同一口的 wired 驱动天然只有一个写者；Core0 侧唯一写者是
+         * adapter_fb_stop_cb（N64/DC 的停震定时器），与 wired 驱动不同口。 */
         atomic_inc(&rumble_mailbox_seq[id]);
+        RUMBLE_MEMW();
         memcpy(&rumble_mailbox[id], fb_data, sizeof(*fb_data));
+        RUMBLE_MEMW();
         atomic_inc(&rumble_mailbox_seq[id]);
         atomic_set(&rumble_mailbox_pend[id], 1);
         /* 非 0 每帧踢（续命）；0 只在从有到无时踢。连续 0 不踢。 */
@@ -551,11 +573,13 @@ int32_t adapter_fb_rumble_take(uint8_t wired_id, struct raw_fb *fb_data) {
     /* seqlock：写中途或又有新包时重读，保证拿到完整的最新值 */
     do {
         atomic_set(&rumble_mailbox_pend[wired_id], 0);
+        RUMBLE_MEMW();
         seq1 = atomic_get(&rumble_mailbox_seq[wired_id]);
         if (seq1 & 1) {
             continue;
         }
         memcpy(fb_data, &rumble_mailbox[wired_id], sizeof(*fb_data));
+        RUMBLE_MEMW();
         seq2 = atomic_get(&rumble_mailbox_seq[wired_id]);
     } while ((seq1 & 1) || seq1 != seq2 || atomic_get(&rumble_mailbox_pend[wired_id]));
 
