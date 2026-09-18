@@ -215,9 +215,9 @@ static void ps_btn_queue_push(uint8_t wired_id, uint16_t buttons_al) {
         slot_face = (uint16_t)(merged & PS_FACE_MASK);
         slot_kind = btn_q_kind[wired_id][idx];
         no_merge = 0;
-        /* 方向组彼此不并（含方向回中）；方向可并进脸键空 */
+        /* 纯方向彼此不并；队尾已有脸键时新方向可并进去 */
         if (dir_changed) {
-            if (dir && slot_dir) {
+            if (dir && slot_dir && !slot_face) {
                 no_merge = 1;
             } else if (dir && !slot_dir && !slot_face &&
                     (slot_kind == PS_Q_KIND_DIR_EMPTY || slot_kind == PS_Q_KIND_BOTH_EMPTY)) {
@@ -226,7 +226,10 @@ static void ps_btn_queue_push(uint8_t wired_id, uint16_t buttons_al) {
                 no_merge = 1;
             }
         }
-        /* 脸键空只跟脸键不并；方向空可并进圈 */
+        /* 方向后面不并脸键按下；脸键空只跟脸键不并 */
+        if (face_press && slot_dir) {
+            no_merge = 1;
+        }
         if (face_release && slot_face) {
             no_merge = 1;
         }
