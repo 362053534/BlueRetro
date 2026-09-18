@@ -35,7 +35,7 @@
 #define BT_FB_BATT_DECIDE_TICKS (5000 / BT_FB_TASK_DELAY_MS) /* 5s 低电判定 */
 /* 连续多少次马达全 0 才发 stop。1=立刻停；>1 会把帧级 PWM 粘成持续震。 */
 #define RUMBLE_STOP_ZERO_COUNT 3
-/* PS 数字键队列：方向变向必开新格；窗口内方向+其他键/其他键+其他键合并。回中不入队。 */
+/* PS 数字键队列：回中入队。方向组（含方向回中）彼此不并；脸键空只跟脸键不并；其余窗口内合并。 */
 #define INPUT_BTN_QUEUE_DEPTH 8
 #define INPUT_CHORD_WINDOW_MS 500
 /*

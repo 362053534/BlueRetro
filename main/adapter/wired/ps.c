@@ -151,10 +151,10 @@ static void ps_btn_queue_reset(uint8_t wired_id) {
 }
 
 static void ps_btn_queue_push(uint8_t wired_id, uint16_t buttons_al) {
-    uint16_t ah, dir, face, ldir, lface, nhead, idx, merged;
+    uint16_t ah, dir, face, ldir, lface, nhead, idx, merged, slot_dir, slot_face;
     int64_t now;
     uint8_t head, tail;
-    int two_dirs, in_win;
+    int in_win, no_merge, dir_changed, face_press, face_release;
 
     if (wired_id >= WIRED_MAX_DEV) {
         return;
@@ -165,16 +165,11 @@ static void ps_btn_queue_push(uint8_t wired_id, uint16_t buttons_al) {
     ldir = btn_q_last_ah[wired_id] & PS_DPAD_MASK;
     lface = btn_q_last_ah[wired_id] & PS_FACE_MASK;
 
-    if (dir == ldir && face == lface) {
-        return;
-    }
-    /* 只动十字键回到中立：不入队 */
-    if (dir == 0 && ldir != 0 && face == lface) {
-        btn_q_last_ah[wired_id] = ah;
+    /* 按住不变不入队；按下和回中都要入队 */
+    if (ah == btn_q_last_ah[wired_id]) {
         return;
     }
 
-    two_dirs = (dir != 0 && ldir != 0 && dir != ldir);
     now = esp_timer_get_time();
     head = btn_q_head[wired_id];
     tail = btn_q_tail[wired_id];
@@ -184,21 +179,50 @@ static void ps_btn_queue_push(uint8_t wired_id, uint16_t buttons_al) {
         in_win = 1;
     }
 
-    if (in_win && !two_dirs) {
+    dir_changed = (dir != ldir);
+    face_press = (face & (uint16_t)~lface) != 0;
+    face_release = (lface & (uint16_t)~face) != 0 && !face_press;
+
+    no_merge = 1;
+    merged = 0;
+    idx = 0;
+    if (in_win) {
         idx = (uint16_t)((head + INPUT_BTN_QUEUE_SLOTS - 1) % INPUT_BTN_QUEUE_SLOTS);
         merged = btn_q_slots[wired_id][idx];
-        /* 回中不入队，队尾若已是另一个方向，仍算方向与方向，不能并 */
-        if (!(dir && (merged & PS_DPAD_MASK) && dir != (merged & PS_DPAD_MASK))) {
-            if (dir) {
-                merged = (uint16_t)((merged & ~PS_DPAD_MASK) | dir);
+        slot_dir = (uint16_t)(merged & PS_DPAD_MASK);
+        slot_face = (uint16_t)(merged & PS_FACE_MASK);
+        no_merge = 0;
+        /* 方向组彼此不并（含方向回中） */
+        if (dir_changed) {
+            if (dir && slot_dir) {
+                no_merge = 1;
+            } else if (dir && !slot_dir && !slot_face) {
+                no_merge = 1;
+            } else if (!dir && slot_dir) {
+                no_merge = 1;
             }
-            merged |= face;
-            btn_q_slots[wired_id][idx] = merged;
-            INPUT_Q_MEMW();
-            btn_q_last_ah[wired_id] = ah;
-            btn_q_last_us[wired_id] = now;
-            return;
         }
+        /* 脸键空只跟脸键不并 */
+        if (face_release && slot_face) {
+            no_merge = 1;
+        }
+        if (face_press && !slot_face && !slot_dir) {
+            no_merge = 1;
+        }
+    }
+
+    if (!no_merge) {
+        if (dir_changed) {
+            merged = (uint16_t)((merged & ~PS_DPAD_MASK) | dir);
+        }
+        if (face != lface) {
+            merged = (uint16_t)((merged & ~PS_FACE_MASK) | face);
+        }
+        btn_q_slots[wired_id][idx] = merged;
+        INPUT_Q_MEMW();
+        btn_q_last_ah[wired_id] = ah;
+        btn_q_last_us[wired_id] = now;
+        return;
     }
 
     nhead = (uint16_t)((head + 1) % INPUT_BTN_QUEUE_SLOTS);
