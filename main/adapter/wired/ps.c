@@ -10,6 +10,8 @@
 #include "adapter/kb_monitor.h"
 #include "adapter/wired/wired.h"
 #include "ps.h"
+#include <esp_timer.h>
+#include <esp_attr.h>
 
 #define PS_JOYSTICK_AXES_CNT 4
 
@@ -119,6 +121,148 @@ static DRAM_ATTR const uint8_t ps_btns_idx[32] = {
     15, 13, 0, 0,
 };
 
+
+#define PS_DPAD_MASK (BIT(PS_D_UP) | BIT(PS_D_RIGHT) | BIT(PS_D_DOWN) | BIT(PS_D_LEFT))
+#define PS_FACE_MASK (BIT(PS_L2) | BIT(PS_R2) | BIT(PS_L1) | BIT(PS_R1) | BIT(PS_T) | BIT(PS_C) | BIT(PS_X) | BIT(PS_S))
+#define PS_QUEUE_MASK (PS_DPAD_MASK | PS_FACE_MASK)
+#define INPUT_BTN_QUEUE_SLOTS (INPUT_BTN_QUEUE_DEPTH + 1)
+#define INPUT_Q_MEMW() __asm__ __volatile__("memw" ::: "memory")
+
+static uint16_t btn_q_slots[WIRED_MAX_DEV][INPUT_BTN_QUEUE_SLOTS];
+static volatile uint8_t btn_q_head[WIRED_MAX_DEV];
+static volatile uint8_t btn_q_tail[WIRED_MAX_DEV];
+static uint16_t btn_q_last_ah[WIRED_MAX_DEV];
+static int64_t btn_q_last_us[WIRED_MAX_DEV];
+#if INPUT_BTN_QUEUE_HOLD_MS > 0
+static int64_t btn_q_hold_start_us[WIRED_MAX_DEV];
+#endif
+
+static void ps_btn_queue_reset(uint8_t wired_id) {
+    if (wired_id >= WIRED_MAX_DEV) {
+        return;
+    }
+    btn_q_head[wired_id] = 0;
+    btn_q_tail[wired_id] = 0;
+    btn_q_last_ah[wired_id] = 0;
+    btn_q_last_us[wired_id] = 0;
+#if INPUT_BTN_QUEUE_HOLD_MS > 0
+    btn_q_hold_start_us[wired_id] = 0;
+#endif
+}
+
+static void ps_btn_queue_push(uint8_t wired_id, uint16_t buttons_al) {
+    uint16_t ah, dir, face, ldir, lface, nhead, idx, merged;
+    int64_t now;
+    uint8_t head, tail;
+    int two_dirs, in_win;
+
+    if (wired_id >= WIRED_MAX_DEV) {
+        return;
+    }
+    ah = (uint16_t)((~buttons_al) & PS_QUEUE_MASK);
+    dir = ah & PS_DPAD_MASK;
+    face = ah & PS_FACE_MASK;
+    ldir = btn_q_last_ah[wired_id] & PS_DPAD_MASK;
+    lface = btn_q_last_ah[wired_id] & PS_FACE_MASK;
+
+    if (dir == ldir && face == lface) {
+        return;
+    }
+    /* 只动十字键回到中立：不入队 */
+    if (dir == 0 && ldir != 0 && face == lface) {
+        btn_q_last_ah[wired_id] = ah;
+        return;
+    }
+
+    two_dirs = (dir != 0 && ldir != 0 && dir != ldir);
+    now = esp_timer_get_time();
+    head = btn_q_head[wired_id];
+    tail = btn_q_tail[wired_id];
+    in_win = 0;
+    if (INPUT_CHORD_WINDOW_MS > 0 && head != tail &&
+            (now - btn_q_last_us[wired_id]) <= ((int64_t)INPUT_CHORD_WINDOW_MS * 1000)) {
+        in_win = 1;
+    }
+
+    if (in_win && !two_dirs) {
+        idx = (uint16_t)((head + INPUT_BTN_QUEUE_SLOTS - 1) % INPUT_BTN_QUEUE_SLOTS);
+        merged = btn_q_slots[wired_id][idx];
+        /* 回中不入队，队尾若已是另一个方向，仍算方向与方向，不能并 */
+        if (!(dir && (merged & PS_DPAD_MASK) && dir != (merged & PS_DPAD_MASK))) {
+            if (dir) {
+                merged = (uint16_t)((merged & ~PS_DPAD_MASK) | dir);
+            }
+            merged |= face;
+            btn_q_slots[wired_id][idx] = merged;
+            INPUT_Q_MEMW();
+            btn_q_last_ah[wired_id] = ah;
+            btn_q_last_us[wired_id] = now;
+            return;
+        }
+    }
+
+    nhead = (uint16_t)((head + 1) % INPUT_BTN_QUEUE_SLOTS);
+    if (nhead == tail) {
+        btn_q_tail[wired_id] = (uint8_t)((tail + 1) % INPUT_BTN_QUEUE_SLOTS);
+#if INPUT_BTN_QUEUE_HOLD_MS > 0
+        btn_q_hold_start_us[wired_id] = 0;
+#endif
+    }
+    btn_q_slots[wired_id][head] = (uint16_t)(dir | face);
+    INPUT_Q_MEMW();
+    btn_q_head[wired_id] = (uint8_t)nhead;
+    btn_q_last_ah[wired_id] = ah;
+    btn_q_last_us[wired_id] = now;
+}
+
+uint16_t IRAM_ATTR ps_btn_queue_overlay(uint8_t wired_id, uint16_t live_buttons) {
+    uint8_t head, tail;
+    uint16_t ah;
+#if INPUT_BTN_QUEUE_HOLD_MS > 0
+    int64_t now;
+#endif
+
+    if (wired_id >= WIRED_MAX_DEV) {
+        return live_buttons;
+    }
+    head = btn_q_head[wired_id];
+    tail = btn_q_tail[wired_id];
+    if (head == tail) {
+        return live_buttons;
+    }
+    INPUT_Q_MEMW();
+    ah = btn_q_slots[wired_id][tail];
+#if INPUT_BTN_QUEUE_HOLD_MS > 0
+    now = esp_timer_get_time();
+    if (btn_q_hold_start_us[wired_id] == 0) {
+        btn_q_hold_start_us[wired_id] = now;
+    }
+    /* 这一格还没展示满，主机继续读到同一格 */
+    if ((now - btn_q_hold_start_us[wired_id]) < ((int64_t)INPUT_BTN_QUEUE_HOLD_MS * 1000)) {
+        live_buttons |= PS_QUEUE_MASK;
+        live_buttons &= (uint16_t)(~ah);
+        return live_buttons;
+    }
+    /* 保持时间到，出队；还有下一格就立刻开始计时 */
+    btn_q_tail[wired_id] = (uint8_t)((tail + 1) % INPUT_BTN_QUEUE_SLOTS);
+    INPUT_Q_MEMW();
+    tail = btn_q_tail[wired_id];
+    if (head == tail) {
+        btn_q_hold_start_us[wired_id] = 0;
+        return live_buttons;
+    }
+    INPUT_Q_MEMW();
+    ah = btn_q_slots[wired_id][tail];
+    btn_q_hold_start_us[wired_id] = now;
+#else
+    btn_q_tail[wired_id] = (uint8_t)((tail + 1) % INPUT_BTN_QUEUE_SLOTS);
+    INPUT_Q_MEMW();
+#endif
+    live_buttons |= PS_QUEUE_MASK;
+    live_buttons &= (uint16_t)(~ah);
+    return live_buttons;
+}
+
 static const uint32_t ps_mouse_mask[4] = {0x110000F0, 0x00000000, 0x00000000, BR_COMBO_MASK};
 static const uint32_t ps_mouse_desc[4] = {0x000000F0, 0x00000000, 0x00000000, 0x00000000};
 static const uint32_t ps_mouse_btns_mask[32] = {
@@ -193,6 +337,7 @@ void IRAM_ATTR ps_init_buffer(int32_t dev_mode, struct wired_data *wired_data) {
             struct ps_map *map = (struct ps_map *)wired_data->output;
             struct ps_map *map_mask = (struct ps_map *)wired_data->output_mask;
 
+            ps_btn_queue_reset((uint8_t)(wired_data - wired_adapter.data));
             memset((void *)map, 0, sizeof(*map));
             map->buttons = 0xFFFF;
             map->analog_btn = 0x00;
@@ -295,6 +440,7 @@ static void ps_ctrl_from_generic(struct wired_ctrl *ctrl_data, struct wired_data
     }
 
     memcpy(wired_data->output, (void *)&map_tmp, sizeof(map_tmp));
+    ps_btn_queue_push(ctrl_data->index, map_tmp.buttons);
 
 #ifdef CONFIG_BLUERETRO_RAW_OUTPUT
     printf("{\"log_type\": \"wired_output\", \"axes\": [%d, %d, %d, %d], \"btns\": [%d, %d]}\n",

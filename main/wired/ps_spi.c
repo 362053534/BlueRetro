@@ -499,8 +499,12 @@ static void ps_cmd_rsp_hdlr(struct ps_ctrl_port *port, uint8_t id, uint8_t cmd, 
                     load_mouse_axes(id + port->mt_first_port, &rsp[2]);
                     break;
                 default:
-                    *(uint16_t *)&rsp[0] = wired_adapter.data[id + port->mt_first_port].output16[0]
+                {
+                    uint16_t btns = wired_adapter.data[id + port->mt_first_port].output16[0]
                         | wired_adapter.data[id + port->mt_first_port].output_mask16[0];
+                    /* 十字键和脸键走队列，避免 1ms 中间态被 16ms 主机读盖掉 */
+                    btns = ps_btn_queue_overlay((uint8_t)(id + port->mt_first_port), btns);
+                    *(uint16_t *)&rsp[0] = btns;
                     if (size >  2) {
                         for (uint32_t i = 2; i < 6; ++i) {
                             rsp[i] = (wired_adapter.data[id + port->mt_first_port].output_mask[i]) ?
@@ -520,6 +524,7 @@ static void ps_cmd_rsp_hdlr(struct ps_ctrl_port *port, uint8_t id, uint8_t cmd, 
                     }
                     ++wired_adapter.data[id + port->mt_first_port].frame_cnt;
                     break;
+                }
             }
             if (cmd != 0x42 && cmd != 0x43) {
                 ets_printf("# P%d Ukn: %02X\n", id, cmd);
