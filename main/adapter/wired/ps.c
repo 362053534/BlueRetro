@@ -222,7 +222,10 @@ static void ps_btn_queue_push(uint8_t wired_id, uint16_t buttons_al) {
         prev_new_face = (uint16_t)(slot_new & PS_FACE_MASK);
         slot_kind = btn_q_kind[wired_id][idx];
         no_merge = 0;
-        if (newly) {
+        if (released) {
+            /* 有松开：一律开新格，不回头改上一格（含半回中、同一帧又松又按） */
+            no_merge = 1;
+        } else if (newly) {
             /* 只拿新增键判定：还按着的不参与 */
             if (new_face && prev_new_dir && !prev_new_face) {
                 no_merge = 1; /* 方向后不并脸键按下 */
@@ -238,21 +241,13 @@ static void ps_btn_queue_push(uint8_t wired_id, uint16_t buttons_al) {
                     (slot_kind == PS_Q_KIND_DIR_EMPTY || slot_kind == PS_Q_KIND_BOTH_EMPTY)) {
                 no_merge = 1;
             }
-        } else {
-            /* 纯松开：脸键空不跟脸键并，方向回中不跟方向并 */
-            if (face_release && slot_face) {
-                no_merge = 1;
-            }
-            if (dir_changed && !dir && slot_dir) {
-                no_merge = 1;
-            }
         }
     }
 
     if (!no_merge) {
-        /* 只把新增键并进队尾，松开的从这一格清掉 */
-        merged = (uint16_t)((merged | newly) & (uint16_t)~released);
-        slot_new = (uint16_t)((slot_new | newly) & (uint16_t)~released);
+        /* 无松开才并：只把新增键并进队尾 */
+        merged = (uint16_t)(merged | newly);
+        slot_new = (uint16_t)(slot_new | newly);
         btn_q_slots[wired_id][idx] = merged;
         btn_q_new[wired_id][idx] = slot_new;
         btn_q_kind[wired_id][idx] = ps_btn_queue_kind(dir_changed, face_release,
