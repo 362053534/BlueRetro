@@ -134,6 +134,7 @@ static DRAM_ATTR const uint8_t ps_btns_idx[32] = {
 #define PS_Q_KIND_BOTH_EMPTY 3
 
 static uint16_t btn_q_slots[WIRED_MAX_DEV][INPUT_BTN_QUEUE_SLOTS];
+static uint16_t btn_q_new[WIRED_MAX_DEV][INPUT_BTN_QUEUE_SLOTS];
 static uint8_t btn_q_kind[WIRED_MAX_DEV][INPUT_BTN_QUEUE_SLOTS];
 static volatile uint8_t btn_q_head[WIRED_MAX_DEV];
 static volatile uint8_t btn_q_tail[WIRED_MAX_DEV];
@@ -173,10 +174,11 @@ static uint8_t ps_btn_queue_kind(int dir_changed, int face_release, uint16_t dir
 }
 
 static void ps_btn_queue_push(uint8_t wired_id, uint16_t buttons_al) {
-    uint16_t ah, dir, face, ldir, lface, nhead, idx, merged, slot_dir, slot_face;
+    uint16_t ah, dir, face, nhead, idx, merged, newly, released, slot_new;
+    uint16_t slot_dir, slot_face, prev_new_dir, prev_new_face, new_dir, new_face;
     int64_t now;
     uint8_t head, tail, slot_kind, kind;
-    int in_win, no_merge, dir_changed, face_press, face_release;
+    int in_win, no_merge, dir_changed, face_release;
 
     if (wired_id >= WIRED_MAX_DEV) {
         return;
@@ -184,13 +186,18 @@ static void ps_btn_queue_push(uint8_t wired_id, uint16_t buttons_al) {
     ah = (uint16_t)((~buttons_al) & PS_QUEUE_MASK);
     dir = ah & PS_DPAD_MASK;
     face = ah & PS_FACE_MASK;
-    ldir = btn_q_last_ah[wired_id] & PS_DPAD_MASK;
-    lface = btn_q_last_ah[wired_id] & PS_FACE_MASK;
 
     /* 按住不变不入队；按下和回中都要入队 */
     if (ah == btn_q_last_ah[wired_id]) {
         return;
     }
+
+    newly = (uint16_t)(ah & (uint16_t)~btn_q_last_ah[wired_id]);
+    released = (uint16_t)(btn_q_last_ah[wired_id] & (uint16_t)~ah);
+    new_dir = newly & PS_DPAD_MASK;
+    new_face = newly & PS_FACE_MASK;
+    dir_changed = (dir != (btn_q_last_ah[wired_id] & PS_DPAD_MASK));
+    face_release = (released & PS_FACE_MASK) != 0 && new_face == 0;
 
     now = esp_timer_get_time();
     head = btn_q_head[wired_id];
@@ -201,52 +208,53 @@ static void ps_btn_queue_push(uint8_t wired_id, uint16_t buttons_al) {
         in_win = 1;
     }
 
-    dir_changed = (dir != ldir);
-    face_press = (face & (uint16_t)~lface) != 0;
-    face_release = (lface & (uint16_t)~face) != 0 && !face_press;
-
     no_merge = 1;
     merged = 0;
     idx = 0;
+    slot_new = 0;
     if (in_win) {
         idx = (uint16_t)((head + INPUT_BTN_QUEUE_SLOTS - 1) % INPUT_BTN_QUEUE_SLOTS);
         merged = btn_q_slots[wired_id][idx];
+        slot_new = btn_q_new[wired_id][idx];
         slot_dir = (uint16_t)(merged & PS_DPAD_MASK);
         slot_face = (uint16_t)(merged & PS_FACE_MASK);
+        prev_new_dir = (uint16_t)(slot_new & PS_DPAD_MASK);
+        prev_new_face = (uint16_t)(slot_new & PS_FACE_MASK);
         slot_kind = btn_q_kind[wired_id][idx];
         no_merge = 0;
-        /* 纯方向彼此不并；队尾已有脸键时新方向可并进去 */
-        if (dir_changed) {
-            if (dir && slot_dir && !slot_face) {
-                no_merge = 1;
-            } else if (dir && !slot_dir && !slot_face &&
-                    (slot_kind == PS_Q_KIND_DIR_EMPTY || slot_kind == PS_Q_KIND_BOTH_EMPTY)) {
-                no_merge = 1;
-            } else if (!dir && slot_dir) {
+        if (newly) {
+            /* 只拿新增键判定：还按着的不参与 */
+            if (new_face && prev_new_dir && !prev_new_face) {
+                no_merge = 1; /* 方向后不并脸键按下 */
+            }
+            if (new_dir && prev_new_dir && !prev_new_face) {
+                no_merge = 1; /* 纯方向不并 */
+            }
+            if (new_face && !slot_face && !slot_dir &&
+                    (slot_kind == PS_Q_KIND_FACE_EMPTY || slot_kind == PS_Q_KIND_BOTH_EMPTY)) {
                 no_merge = 1;
             }
-        }
-        /* 方向后面不并脸键按下；脸键空只跟脸键不并 */
-        if (face_press && slot_dir) {
-            no_merge = 1;
-        }
-        if (face_release && slot_face) {
-            no_merge = 1;
-        }
-        if (face_press && !slot_face && !slot_dir &&
-                (slot_kind == PS_Q_KIND_FACE_EMPTY || slot_kind == PS_Q_KIND_BOTH_EMPTY)) {
-            no_merge = 1;
+            if (new_dir && !slot_dir && !slot_face &&
+                    (slot_kind == PS_Q_KIND_DIR_EMPTY || slot_kind == PS_Q_KIND_BOTH_EMPTY)) {
+                no_merge = 1;
+            }
+        } else {
+            /* 纯松开：脸键空不跟脸键并，方向回中不跟方向并 */
+            if (face_release && slot_face) {
+                no_merge = 1;
+            }
+            if (dir_changed && !dir && slot_dir) {
+                no_merge = 1;
+            }
         }
     }
 
     if (!no_merge) {
-        if (dir_changed) {
-            merged = (uint16_t)((merged & ~PS_DPAD_MASK) | dir);
-        }
-        if (face != lface) {
-            merged = (uint16_t)((merged & ~PS_FACE_MASK) | face);
-        }
+        /* 只把新增键并进队尾，松开的从这一格清掉 */
+        merged = (uint16_t)((merged | newly) & (uint16_t)~released);
+        slot_new = (uint16_t)((slot_new | newly) & (uint16_t)~released);
         btn_q_slots[wired_id][idx] = merged;
+        btn_q_new[wired_id][idx] = slot_new;
         btn_q_kind[wired_id][idx] = ps_btn_queue_kind(dir_changed, face_release,
             (uint16_t)(merged & PS_DPAD_MASK), (uint16_t)(merged & PS_FACE_MASK));
         INPUT_Q_MEMW();
@@ -264,6 +272,7 @@ static void ps_btn_queue_push(uint8_t wired_id, uint16_t buttons_al) {
     }
     kind = ps_btn_queue_kind(dir_changed, face_release, dir, face);
     btn_q_slots[wired_id][head] = (uint16_t)(dir | face);
+    btn_q_new[wired_id][head] = newly;
     btn_q_kind[wired_id][head] = kind;
     INPUT_Q_MEMW();
     btn_q_head[wired_id] = (uint8_t)nhead;
