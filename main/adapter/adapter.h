@@ -36,15 +36,15 @@
 /* 连续多少次马达全 0 才发 stop。1=立刻停；>1 会把帧级 PWM 粘成持续震。 */
 #define RUMBLE_STOP_ZERO_COUNT 3
 /* PS 数字键队列：回中入队。方向组（含方向回中）彼此不并；脸键空只跟脸键不并；其余窗口内合并。 */
-#define INPUT_BTN_QUEUE_DEPTH 8
-#define INPUT_CHORD_WINDOW_MS 500
+#define INPUT_BTN_QUEUE_DEPTH 16
+#define INPUT_CHORD_WINDOW_MS 10
 /*
  * 仅测试用，玩游戏必须保持 0。
  * 每一格按键在主机侧保持多少毫秒才出下一格。
  * 0：主机每读一次就出一格（正常）。
  * 1000：左/下/右会各被读到约 1 秒，用来确认队列有没有生效。
  */
-#define INPUT_BTN_QUEUE_HOLD_MS 1000
+#define INPUT_BTN_QUEUE_HOLD_MS 0
 
 /* BT device type ID */
 enum {
