@@ -245,9 +245,9 @@ static void ps_btn_queue_push(uint8_t wired_id, uint16_t buttons_al) {
     }
 
     if (!no_merge) {
-        /* 无松开才并：只把新增键并进队尾 */
+        /* 无松开才并：只把新增键并进队尾，新增掩码覆盖为本次真正按下的键 */
         merged = (uint16_t)(merged | newly);
-        slot_new = (uint16_t)(slot_new | newly);
+        slot_new = newly;
         btn_q_slots[wired_id][idx] = merged;
         btn_q_new[wired_id][idx] = slot_new;
         btn_q_kind[wired_id][idx] = ps_btn_queue_kind(dir_changed, face_release,
@@ -267,8 +267,12 @@ static void ps_btn_queue_push(uint8_t wired_id, uint16_t buttons_al) {
     }
     kind = ps_btn_queue_kind(dir_changed, face_release, dir, face);
     btn_q_slots[wired_id][head] = (uint16_t)(dir | face);
-    /* 回中没有新增：把还按着的键当作这一格的新增，避免正方向被下一拍并掉 */
-    btn_q_new[wired_id][head] = newly ? newly : (uint16_t)(dir | face);
+    /* 仅方向松开且仍按着方向时，把剩余方向记为上一笔，防止正方向被斜向吞掉 */
+    if ((released & PS_DPAD_MASK) && dir) {
+        btn_q_new[wired_id][head] = dir;
+    } else {
+        btn_q_new[wired_id][head] = newly;
+    }
     btn_q_kind[wired_id][head] = kind;
     INPUT_Q_MEMW();
     btn_q_head[wired_id] = (uint8_t)nhead;
