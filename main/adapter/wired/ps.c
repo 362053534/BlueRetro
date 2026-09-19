@@ -240,9 +240,12 @@ static void ps_btn_queue_push(uint8_t wired_id, uint16_t buttons_al) {
             if (new_dir && prev_new_dir && !prev_new_face) {
                 no_merge = 1; /* 纯方向不并 */
             }
+            if (new_face && !slot_face && slot_dir) {
+                no_merge = 1; /* 还按着方向的松脸键格，不并脸键 */
+            }
             if (new_face && !slot_face && !slot_dir &&
                     (slot_kind == PS_Q_KIND_FACE_EMPTY || slot_kind == PS_Q_KIND_BOTH_EMPTY)) {
-                no_merge = 1;
+                no_merge = 1; /* 脸键空格不并脸键 */
             }
             if (new_dir && !slot_dir && !slot_face &&
                     (slot_kind == PS_Q_KIND_DIR_EMPTY || slot_kind == PS_Q_KIND_BOTH_EMPTY)) {
