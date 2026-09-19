@@ -52,6 +52,8 @@ static atomic_t rumble_mailbox_pend[WIRED_MAX_DEV];
 /* 上一包马达值。重复的 0 不门铃；非 0 每帧都踢。 */
 static uint16_t rumble_zero_cnt[WIRED_MAX_DEV];
 static uint8_t rumble_doorbell_last[WIRED_MAX_DEV][2];
+/* Xtensa atomic 不是内存屏障，seqlock 两侧都要 memw，避免读到半新半旧 */
+#define RUMBLE_MEMW() __asm__ __volatile__("memw" ::: "memory")
 
 static uint32_t btn_id_to_btn_idx(uint8_t btn_id) {
     if (btn_id < 32) {
@@ -519,7 +521,9 @@ void IRAM_ATTR adapter_q_fb(struct raw_fb *fb_data) {
         }
         /* seq 奇数表示 ISR 正在写，偶数表示数据稳定 */
         atomic_inc(&rumble_mailbox_seq[id]);
+        RUMBLE_MEMW();
         memcpy(&rumble_mailbox[id], fb_data, sizeof(*fb_data));
+        RUMBLE_MEMW();
         atomic_inc(&rumble_mailbox_seq[id]);
         atomic_set(&rumble_mailbox_pend[id], 1);
         /* 非 0 每帧踢（续命）；0 只在从有到无时踢。连续 0 不踢。 */
@@ -551,11 +555,13 @@ int32_t adapter_fb_rumble_take(uint8_t wired_id, struct raw_fb *fb_data) {
     /* seqlock：写中途或又有新包时重读，保证拿到完整的最新值 */
     do {
         atomic_set(&rumble_mailbox_pend[wired_id], 0);
+        RUMBLE_MEMW();
         seq1 = atomic_get(&rumble_mailbox_seq[wired_id]);
         if (seq1 & 1) {
             continue;
         }
         memcpy(fb_data, &rumble_mailbox[wired_id], sizeof(*fb_data));
+        RUMBLE_MEMW();
         seq2 = atomic_get(&rumble_mailbox_seq[wired_id]);
     } while ((seq1 & 1) || seq1 != seq2 || atomic_get(&rumble_mailbox_pend[wired_id]));
 
