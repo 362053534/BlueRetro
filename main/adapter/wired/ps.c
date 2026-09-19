@@ -178,7 +178,7 @@ static void ps_btn_queue_push(uint8_t wired_id, uint16_t buttons_al) {
     uint16_t slot_dir, slot_face, prev_new_dir, prev_new_face, new_dir, new_face;
     int64_t now;
     uint8_t head, tail, slot_kind, kind;
-    int in_win, no_merge, dir_changed, face_release;
+    int in_win, no_merge, dir_changed, face_release, dir_roll;
 
     if (wired_id >= WIRED_MAX_DEV) {
         return;
@@ -198,6 +198,13 @@ static void ps_btn_queue_push(uint8_t wired_id, uint16_t buttons_al) {
     new_face = newly & PS_FACE_MASK;
     dir_changed = (dir != (btn_q_last_ah[wired_id] & PS_DPAD_MASK));
     face_release = (released & PS_FACE_MASK) != 0 && new_face == 0;
+    /* 只松方向且仍按着方向：剩余方向当作这一拍新增 */
+    dir_roll = (released & PS_DPAD_MASK) && dir
+            && !(released & PS_FACE_MASK) && !new_face;
+    if (dir_roll) {
+        newly = dir;
+        new_dir = dir;
+    }
 
     now = esp_timer_get_time();
     head = btn_q_head[wired_id];
@@ -222,8 +229,8 @@ static void ps_btn_queue_push(uint8_t wired_id, uint16_t buttons_al) {
         prev_new_face = (uint16_t)(slot_new & PS_FACE_MASK);
         slot_kind = btn_q_kind[wired_id][idx];
         no_merge = 0;
-        if (released) {
-            /* 有松开：一律开新格，不回头改上一格（含半回中、同一帧又松又按） */
+        if (released && !dir_roll) {
+            /* 松脸键、松光方向、同一帧又松又按：开新格 */
             no_merge = 1;
         } else if (newly) {
             /* 只拿新增键判定：还按着的不参与 */
@@ -245,8 +252,8 @@ static void ps_btn_queue_push(uint8_t wired_id, uint16_t buttons_al) {
     }
 
     if (!no_merge) {
-        /* 无松开才并：只把新增键并进队尾，新增掩码覆盖为本次真正按下的键 */
-        merged = (uint16_t)(merged | newly);
+        /* 写成当前手势，松下时下会从上一格清掉；新增掩码覆盖为这一拍新增 */
+        merged = (uint16_t)(dir | face);
         slot_new = newly;
         btn_q_slots[wired_id][idx] = merged;
         btn_q_new[wired_id][idx] = slot_new;
