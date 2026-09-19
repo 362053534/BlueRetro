@@ -44,7 +44,7 @@
  * 0：主机每读一次就出一格（正常）。
  * 1000：左/下/右会各被读到约 1 秒，用来确认队列有没有生效。
  */
-#define INPUT_BTN_QUEUE_HOLD_MS 0
+#define INPUT_BTN_QUEUE_HOLD_MS 1000
 
 /* BT device type ID */
 enum {
