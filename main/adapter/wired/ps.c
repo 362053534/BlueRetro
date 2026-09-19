@@ -267,7 +267,8 @@ static void ps_btn_queue_push(uint8_t wired_id, uint16_t buttons_al) {
     }
     kind = ps_btn_queue_kind(dir_changed, face_release, dir, face);
     btn_q_slots[wired_id][head] = (uint16_t)(dir | face);
-    btn_q_new[wired_id][head] = newly;
+    /* 回中没有新增：把还按着的键当作这一格的新增，避免正方向被下一拍并掉 */
+    btn_q_new[wired_id][head] = newly ? newly : (uint16_t)(dir | face);
     btn_q_kind[wired_id][head] = kind;
     INPUT_Q_MEMW();
     btn_q_head[wired_id] = (uint8_t)nhead;
